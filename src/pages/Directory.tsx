@@ -1,7 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApi, type Volunteer, type VolunteerInput } from "../api";
-import { useAppState } from "../App";
+import { PageHeader, useAppState } from "../App";
+import { FollowupForm } from "../components/FollowupForm";
 import { Modal } from "../components/Modal";
 import { VolunteerFields, validateVolunteer } from "../components/VolunteerFields";
 import { EventForm } from "../components/EventForm";
@@ -17,8 +18,8 @@ export function Directory() {
   const nav = useNavigate();
   const { ministries } = useAppState();
   const data = useLoad(async () => {
-    const [vols, events, asg] = await Promise.all([api.listVolunteers(), api.listEvents(), api.listAssignments()]);
-    return { vols, events, asg };
+    const [vols, events, asg, fus, people] = await Promise.all([api.listVolunteers(), api.listEvents(), api.listAssignments(), api.listFollowups(), api.listProfiles()]);
+    return { vols, events, asg, fus, staff: people.filter((p) => p.role !== "volunteer") };
   }, [api]);
 
   const [q, setQ] = useState("");
@@ -28,6 +29,7 @@ export function Directory() {
   const [target, setTarget] = useState("");
   const [editing, setEditing] = useState<Volunteer | "new" | null>(null);
   const [newEventFor, setNewEventFor] = useState<string[] | null>(null);
+  const [followFor, setFollowFor] = useState<Volunteer | null>(null);
 
   const vols = data.data?.vols ?? [];
   const events = data.data?.events ?? [];
@@ -45,6 +47,7 @@ export function Directory() {
   const base = vols.filter((v) => matchesText(v) && matchesStatus(v));
   const baseNoStatus = vols.filter((v) => matchesText(v) && matchesArea(v));
   const filtering = !!(q || areas.size || status);
+  const openFus = (id: string) => (data.data?.fus ?? []).filter((f) => f.volunteer_id === id && !f.done).length;
   const upcoming = events.filter((e) => !isPast(e.date)).sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
 
   const toggleArea = (id: string) => setAreas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -68,18 +71,15 @@ export function Directory() {
 
   return (
     <div className={picked.size ? "has-selbar" : undefined}>
-      <div className="statsrow">
-        <div className="stat"><b>{data.data ? vols.length : "–"}</b><small>Volunteers</small></div>
-        <div className="stat"><b>{data.data ? vols.filter((v) => !v.contacted).length : "–"}</b><small>To contact</small></div>
-        <div className="stat"><b>{data.data ? upcoming.length : "–"}</b><small>Upcoming events</small></div>
-      </div>
+      <PageHeader title="Volunteers" sub={data.data ? `${plural(vols.length, "volunteer")} · ${vols.filter((v) => !v.contacted).length} not contacted yet` : "Loading…"}>
+        <button className="btn primary" type="button" onClick={() => setEditing("new")}>+ Add a paper card</button>
+      </PageHeader>
 
       <div className="toolbar">
         <div className="search">
           <svg viewBox="0 0 24 24" strokeWidth="2" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
           <input id="dir-q" type="search" placeholder="Search name, phone or email" aria-label="Search volunteers" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
-        <button className="btn primary" type="button" onClick={() => setEditing("new")}>+ Add a paper card</button>
       </div>
 
       {data.error && <div className="notice">{data.error}</div>}
@@ -98,7 +98,7 @@ export function Directory() {
           </div>
         ))}
         <div className="group">
-          <h2>Follow-up</h2>
+          <h2>Contact status</h2>
           <div className="chips">
             {statusChips.map((c) => (
               <button key={c.id} type="button" className="chip status" aria-pressed={status === c.id} onClick={() => setStatus(status === c.id ? null : c.id)}>
@@ -149,13 +149,16 @@ export function Directory() {
                 {!v.phone && !v.email && <span className="lbl">No contact info</span>}
               </div>
             </div>
-            <div className="side"><button className="btn small" type="button" onClick={() => setEditing(v)}>Edit</button></div>
+            <div className="side">
+              <button className="btn small" type="button" onClick={() => setFollowFor(v)}>Follow up</button>
+              <button className="btn small" type="button" onClick={() => setEditing(v)}>Edit</button>
+            </div>
             {v.ministries.length > 0 && (
               <div className="tags">
                 {ministries.filter((m) => v.ministries.includes(m.id)).map((m) => <span key={m.id} className={"tag" + (m.kind === "event" ? " event" : "")}>{m.label}</span>)}
               </div>
             )}
-            <div className="span2"><HistoryLine h={hist.get(v.id)} /></div>
+            <div className="span2"><HistoryLine h={hist.get(v.id)} />{openFus(v.id) > 0 && <p className="history"><span className="fu-flag">{plural(openFus(v.id), "open follow-up")}</span></p>}</div>
             {v.notes && <p className="notes span2">{v.notes}</p>}
           </article>
         ))}
@@ -186,6 +189,14 @@ export function Directory() {
             onDone={async (msg) => { setEditing(null); toast(msg); await data.reload(); }}
             onCancel={() => setEditing(null)}
           />
+        )}
+      </Modal>
+
+      <Modal open={followFor !== null} onClose={() => setFollowFor(null)} labelledBy="fu-dlg-title">
+        {followFor && data.data && (
+          <FollowupForm followup={null} volunteers={vols} staff={data.data.staff} volunteerId={followFor.id}
+            onCancel={() => setFollowFor(null)}
+            onSaved={() => { setFollowFor(null); toast("Follow-up added"); void data.reload(); }} />
         )}
       </Modal>
 

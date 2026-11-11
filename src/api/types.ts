@@ -59,9 +59,37 @@ export interface Assignment {
   status: AttendanceStatus;
 }
 
+export interface Followup {
+  id: string;
+  volunteer_id: string;
+  note: string;
+  due: string | null; // YYYY-MM-DD
+  assigned_to: string | null;
+  done: boolean;
+  done_at: string | null;
+  created_at: string;
+}
+
+export interface FollowupInput {
+  volunteer_id: string;
+  note: string;
+  due: string | null;
+  assigned_to: string | null;
+}
+
 export interface MyAssignment {
   assignment: Assignment;
   event: ChurchEvent;
+}
+
+/** The church's "skin". Admins edit it under Manage → Appearance. */
+export interface Branding {
+  org_name: string;
+  app_title: string;
+  tagline: string;
+  primary_color: string; // #rrggbb
+  accent_color: string; // #rrggbb
+  logo: string; // data: URL or https URL, "" for none
 }
 
 export interface Session {
@@ -73,6 +101,9 @@ export interface Session {
 /** Everything the screens need. Two implementations: Supabase (real) and demo (in the browser). */
 export interface Api {
   readonly mode: "supabase" | "demo";
+  /** Works before sign-in, so the sign-in page can show the church's name and colors. */
+  getBranding(): Promise<Branding>;
+  saveBranding(b: Branding): Promise<void>;
   getSession(): Promise<Session | null>;
   onAuthChange(cb: () => void): () => void;
   /** Sends a sign-in link to the email address. */
@@ -98,8 +129,17 @@ export interface Api {
   setAttendance(assignmentId: string, status: AttendanceStatus): Promise<void>;
   unassign(assignmentId: string): Promise<void>;
 
-  // Admin
+  // Follow-ups (coordinator and admin)
+  listFollowups(): Promise<Followup[]>;
+  saveFollowup(input: FollowupInput, id?: string): Promise<Followup>;
+  setFollowupDone(id: string, done: boolean): Promise<void>;
+  deleteFollowup(id: string): Promise<void>;
+
+  // Areas of interest (coordinator and admin)
+  saveMinistry(m: Ministry): Promise<void>;
+  deleteMinistry(id: string): Promise<void>;
+
+  // People: coordinators can list, only admins change roles
   listProfiles(): Promise<Profile[]>;
   setRole(userId: string, role: Role): Promise<void>;
-  saveMinistry(m: Ministry): Promise<void>;
 }

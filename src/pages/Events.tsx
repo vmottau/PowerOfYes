@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useApi, type Assignment, type ChurchEvent } from "../api";
-import { useAppState } from "../App";
+import { PageHeader, useAppState } from "../App";
 import { Modal } from "../components/Modal";
 import { EventForm } from "../components/EventForm";
 import { dateParts, isPast } from "../lib/format";
@@ -24,10 +24,10 @@ export function Events() {
 
   return (
     <div>
-      <div className="evhead">
-        <h2>Upcoming</h2>
+      <PageHeader title="Events & projects" sub="Create an event, assign volunteers, then mark who came.">
         <button className="btn primary" type="button" onClick={() => setCreating(true)}>+ New event or project</button>
-      </div>
+      </PageHeader>
+      {up.length > 0 && <h2 className="subhead">Upcoming</h2>}
       {data.error && <div className="notice">{data.error}</div>}
       {!data.data ? <p className="muted">Loading events…</p> : !events.length ? (
         <div className="empty">

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useApi, type VolunteerInput } from "../api";
-import { useAppState } from "../App";
+import { PageHeader, useAppState } from "../App";
 import { VolunteerFields, validateVolunteer } from "../components/VolunteerFields";
 import { dateParts, isPast, longDate } from "../lib/format";
 import { errText, useLoad, useToast } from "../lib/hooks";
@@ -47,6 +47,7 @@ export function MyPage() {
 
   return (
     <div className="mypage">
+      <PageHeader title={me.data ? `Hello, ${me.data.name.replace(/^Example:\s*/, "").split(" ")[0]}` : "Welcome"} sub={me.data ? "Thank you for saying yes." : "Let us know where you'd like to help."} />
       {showForm ? (
         <form className="card pad" onSubmit={save} noValidate>
           <h2 className="section-title">{me.data ? "Edit your card" : "Fill in your volunteer card"}</h2>

@@ -1,7 +1,8 @@
 import type {
-  Api, Assignment, ChurchEvent, Ministry, Profile, Role, Session, Volunteer, VolunteerInput,
+  Api, Branding, Assignment, Followup, ChurchEvent, Ministry, Profile, Role, Session, Volunteer, VolunteerInput,
 } from "./types";
 import { DEFAULT_MINISTRIES } from "../lib/ministries";
+import { DEFAULT_BRANDING } from "../lib/brandingDefaults";
 
 /**
  * Demo mode: everything lives in this browser (localStorage), nothing is sent anywhere.
@@ -14,10 +15,12 @@ interface Store {
   volunteers: Volunteer[];
   events: ChurchEvent[];
   assignments: Assignment[];
+  followups: Followup[];
+  branding: Branding;
   sessionUserId: string | null;
 }
 
-const KEY = "pov-demo-v1";
+const KEY = "pov-demo-v2";
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 const iso = (daysFromNow: number) => {
   const d = new Date(Date.now() + daysFromNow * 86400000);
@@ -44,7 +47,11 @@ function seed(): Store {
     { id: uid(), event_id: events[1].id, volunteer_id: volunteers[0].id, status: "attended" },
     { id: uid(), event_id: events[1].id, volunteer_id: volunteers[3].id, status: "missed" },
   ];
-  return { profiles: [], ministries: DEFAULT_MINISTRIES, volunteers, events, assignments, sessionUserId: null };
+  const followups: Followup[] = [
+    { id: uid(), volunteer_id: volunteers[1].id, note: "Call about greeting at the 10:30 Mass", due: iso(-1), assigned_to: null, done: false, done_at: null, created_at: now },
+    { id: uid(), volunteer_id: volunteers[2].id, note: "Ask if she can help with Children's Liturgy next month", due: iso(3), assigned_to: null, done: false, done_at: null, created_at: now },
+  ];
+  return { profiles: [], ministries: DEFAULT_MINISTRIES, volunteers, events, assignments, followups, branding: { ...DEFAULT_BRANDING, org_name: "St. Example Parish" }, sessionUserId: null };
 }
 
 function load(): Store {
@@ -70,6 +77,9 @@ export function createDemoApi(): Api {
 
   return {
     mode: "demo",
+
+    async getBranding() { return delay(s.branding ?? DEFAULT_BRANDING); },
+    async saveBranding(b) { requireAdmin(); s.branding = b; save(); },
 
     async getSession(): Promise<Session | null> {
       const p = me();
@@ -125,6 +135,7 @@ export function createDemoApi(): Api {
     async deleteVolunteer(id) {
       requireStaff();
       s.volunteers = s.volunteers.filter((v) => v.id !== id);
+      s.followups = s.followups.filter((f) => f.volunteer_id !== id);
       s.assignments = s.assignments.filter((a) => a.volunteer_id !== id);
       save();
     },
@@ -157,6 +168,28 @@ export function createDemoApi(): Api {
     },
     async unassign(id) { requireStaff(); s.assignments = s.assignments.filter((a) => a.id !== id); save(); },
 
+    async listFollowups() { requireStaff(); return delay(s.followups); },
+    async saveFollowup(input, id) {
+      requireStaff();
+      let f = id ? s.followups.find((x) => x.id === id) : undefined;
+      if (f) Object.assign(f, input);
+      else { f = { id: uid(), done: false, done_at: null, created_at: new Date().toISOString(), ...input }; s.followups.push(f); }
+      save(); return delay(f);
+    },
+    async setFollowupDone(id, done) {
+      requireStaff();
+      const f = s.followups.find((x) => x.id === id);
+      if (f) { f.done = done; f.done_at = done ? new Date().toISOString() : null; }
+      save();
+    },
+    async deleteFollowup(id) { requireStaff(); s.followups = s.followups.filter((f) => f.id !== id); save(); },
+    async deleteMinistry(id) {
+      requireStaff();
+      s.ministries = s.ministries.filter((m) => m.id !== id);
+      s.events.forEach((e) => { if (e.area === id) e.area = null; });
+      save();
+    },
+
     async listProfiles() { requireStaff(); return delay([...s.profiles].sort((a, b) => a.email.localeCompare(b.email))); },
     async setRole(userId, role) {
       requireAdmin();
@@ -166,7 +199,7 @@ export function createDemoApi(): Api {
       p.role = role; save();
     },
     async saveMinistry(m) {
-      requireAdmin();
+      requireStaff();
       const i = s.ministries.findIndex((x) => x.id === m.id);
       if (i >= 0) s.ministries[i] = m; else s.ministries.push(m);
       save();

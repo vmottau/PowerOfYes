@@ -4,7 +4,11 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 
 - **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled.
 - **Coordinators** see every volunteer by area of interest, type in paper cards, create events and projects, assign people, and mark who showed up.
-- **Admins** do everything coordinators do, choose who is a coordinator, and edit the list of areas of interest.
+- **Coordinators** also keep a follow-up to-do list ("Call Ann about the pierogi batch, due Friday") and maintain the list of ministries and events volunteers can pick from.
+- **Admins** do everything coordinators do, choose who is a coordinator, and set the church's look.
+
+## Make it your church's
+Everything that identifies the church is set in the app, under **Manage → Appearance**: church name, app title, welcome line, two colors (with ready-made palettes) and a logo. Another parish can run its own copy with its own skin without changing any code.
 
 Until Supabase is connected, the site runs in **demo mode**: sample data that stays in your own browser, with buttons to try each role.
 
@@ -23,6 +27,8 @@ Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts
 ## One-time setup
 
 ### 1. Create the Supabase project
+(If you already ran an older `schema.sql`, run the new one again. It's safe to re-run and adds what's missing.)
+
 1. Sign up at [supabase.com](https://supabase.com) and click **New project**. Pick any name and region, and save the database password somewhere safe.
 2. Open **SQL Editor → New query**, paste everything from [`supabase/schema.sql`](supabase/schema.sql), and click **Run**.
 3. Open **Authentication → URL Configuration**:
@@ -38,7 +44,7 @@ Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts
 3. Open **Actions → Deploy to GitHub Pages → Run workflow**. When it finishes, the site's address appears on the run.
 
 ### 3. Become the admin
-Open the site and sign in with your email **first**. The first account created becomes the admin. Then use the **Admin** tab to make the volunteer coordinator a Coordinator after they've signed in once.
+Open the site and sign in with your email **first**. The first account created becomes the admin. Then use **Manage → People & roles** to make the volunteer coordinator a Coordinator after they've signed in once.
 
 ### 4. Before inviting the whole parish: email sending
 Supabase's built-in email sender only allows a few sign-in emails per hour. That's fine for testing. Before announcing the site, connect a real email sender under **Authentication → Emails → SMTP Settings** (the parish's email provider, or a free service such as Brevo or Resend). You can also edit the sign-in email's wording on the same page.

@@ -14,6 +14,7 @@ update profiles set role='coordinator' where email='coord@example.org';
 insert into volunteers (name, email, ministries, source) values ('Card Person', 'VOL2@example.org', '{pierogies}', 'card');
 insert into events (name, date, area) values ('Pierogi batch', '2030-01-01', 'pierogies');
 insert into volunteer_notes select id, 'staff only note' from volunteers;
+insert into followups (volunteer_id, note) select id, 'Call about pierogies' from volunteers;
 reset role;
 
 -- vol1 signs up online
@@ -22,7 +23,11 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
 select claim_my_volunteer_record() is null as "vol1 has no card to claim";
 insert into volunteers (name, email, ministries, contacted) values ('Vol One', 'vol1@example.org', '{pancake}', true);
 select name, contacted, user_id is not null as linked from volunteers;
-select count(*) as vol1_sees_notes from volunteer_notes;  -- sees only own; contacted forced false
+select count(*) as vol1_sees_notes from volunteer_notes;
+select count(*) as vol1_sees_followups from followups;
+do $$ begin
+  begin insert into ministries (id, label) values ('x', 'X'); raise exception 'FAIL volunteer added ministry'; exception when insufficient_privilege then null; end;
+end $$;  -- sees only own; contacted forced false
 do $$ begin
   begin insert into volunteers (name) values ('second'); raise exception 'FAIL second insert allowed'; exception when insufficient_privilege then null; end;
   update profiles set role='admin' where id=auth.uid(); if found then raise exception 'FAIL self promote'; end if;
@@ -43,6 +48,9 @@ reset role;
 set role authenticated;
 set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000d';
 select count(*) as coord_sees_volunteers from volunteers;
+select count(*) as coord_sees_followups from followups;
+insert into ministries (id, label, kind) values ('fish-fry', 'Fish Fry', 'event');
+update followups set done = true;
 insert into assignments (event_id, volunteer_id) select e.id, v.id from events e, volunteers v where v.name='Card Person';
 update assignments set status='attended';
 do $$ begin
@@ -67,5 +75,16 @@ set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
 do $$ begin
   begin update profiles set role='volunteer' where email='admin@example.org'; raise exception 'FAIL demoted last admin'; exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
 end $$;
+reset role;
+-- settings: anon reads, volunteer cannot edit, admin can
+set role anon;
+select org_name from settings;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000b';
+do $$ begin update settings set org_name = 'Hacked'; if found then raise exception 'FAIL volunteer edited settings'; end if; end $$;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-00000000000a';
+update settings set org_name = 'St. Example Parish', primary_color = '#4b2c7f';
+select org_name from settings;
 reset role;
 select 'ALL RLS CHECKS PASSED' as result;

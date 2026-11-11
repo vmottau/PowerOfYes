@@ -64,6 +64,21 @@ create table if not exists public.events (
   updated_at timestamptz not null default now()
 );
 
+-- Follow-up to-dos about a volunteer ("Call Ann about the pierogi batch").
+create table if not exists public.followups (
+  id uuid primary key default gen_random_uuid(),
+  volunteer_id uuid not null references public.volunteers (id) on delete cascade,
+  note text not null check (length(trim(note)) > 0),
+  due date,
+  assigned_to uuid references auth.users (id) on delete set null,
+  done boolean not null default false,
+  done_at timestamptz,
+  created_by uuid references auth.users (id) on delete set null default auth.uid(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists followups_open_idx on public.followups (done, due);
+
 -- Who is assigned to what, and whether they showed up.
 create table if not exists public.assignments (
   id uuid primary key default gen_random_uuid(),
@@ -75,6 +90,19 @@ create table if not exists public.assignments (
   unique (event_id, volunteer_id)
 );
 create index if not exists assignments_volunteer_idx on public.assignments (volunteer_id);
+
+-- The church's "skin": name, logo and colors. One row; admins edit it in the app.
+create table if not exists public.settings (
+  id int primary key default 1 check (id = 1),
+  org_name text not null default 'Our Parish',
+  app_title text not null default 'The Power of Yes',
+  tagline text not null default 'No amount of effort is too big or too small.',
+  primary_color text not null default '#5b2a86' check (primary_color ~ '^#[0-9a-fA-F]{6}$'),
+  accent_color text not null default '#a259c6' check (accent_color ~ '^#[0-9a-fA-F]{6}$'),
+  logo text not null default '' check (length(logo) < 400000),
+  updated_at timestamptz not null default now()
+);
+insert into public.settings (id) values (1) on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------
 -- Role helpers (security definer so policies can read profiles without recursion)
@@ -138,6 +166,9 @@ create trigger volunteers_touch before update on public.volunteers
   for each row execute function public.touch_updated_at();
 drop trigger if exists volunteer_notes_touch on public.volunteer_notes;
 create trigger volunteer_notes_touch before update on public.volunteer_notes
+  for each row execute function public.touch_updated_at();
+drop trigger if exists followups_touch on public.followups;
+create trigger followups_touch before update on public.followups
   for each row execute function public.touch_updated_at();
 drop trigger if exists events_touch on public.events;
 create trigger events_touch before update on public.events
@@ -232,12 +263,22 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Row level security
 -- ---------------------------------------------------------------------------
+alter table public.settings enable row level security;
 alter table public.profiles enable row level security;
 alter table public.ministries enable row level security;
 alter table public.volunteers enable row level security;
 alter table public.volunteer_notes enable row level security;
 alter table public.events enable row level security;
+alter table public.followups enable row level security;
 alter table public.assignments enable row level security;
+
+-- settings: anyone can read (the sign-in page shows the church's name and colors); admins edit
+drop policy if exists "settings: everyone reads" on public.settings;
+create policy "settings: everyone reads" on public.settings
+  for select to anon, authenticated using (true);
+drop policy if exists "settings: admin edits" on public.settings;
+create policy "settings: admin edits" on public.settings
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
 -- profiles
 drop policy if exists "profiles: read own or staff" on public.profiles;
@@ -252,8 +293,9 @@ drop policy if exists "ministries: everyone signed in reads" on public.ministrie
 create policy "ministries: everyone signed in reads" on public.ministries
   for select to authenticated using (true);
 drop policy if exists "ministries: admin writes" on public.ministries;
-create policy "ministries: admin writes" on public.ministries
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "ministries: staff writes" on public.ministries;
+create policy "ministries: staff writes" on public.ministries
+  for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
 -- volunteers
 drop policy if exists "volunteers: read own or staff" on public.volunteers;
@@ -279,6 +321,11 @@ drop policy if exists "volunteer_notes: staff only" on public.volunteer_notes;
 create policy "volunteer_notes: staff only" on public.volunteer_notes
   for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
+-- followups: staff only
+drop policy if exists "followups: staff only" on public.followups;
+create policy "followups: staff only" on public.followups
+  for all to authenticated using (public.is_staff()) with check (public.is_staff());
+
 -- events: staff see all; a volunteer sees the events they are assigned to
 drop policy if exists "events: staff or assigned reads" on public.events;
 create policy "events: staff or assigned reads" on public.events
@@ -302,7 +349,8 @@ drop policy if exists "assignments: staff writes" on public.assignments;
 create policy "assignments: staff writes" on public.assignments
   for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
-grant usage on schema public to authenticated;
+grant usage on schema public to anon, authenticated;
+grant select on public.settings to anon;
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant execute on function public.claim_my_volunteer_record() to authenticated;
 

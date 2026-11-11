@@ -1,6 +1,7 @@
+import { DEFAULT_BRANDING } from "../lib/brandingDefaults";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
-  Api, Assignment, AttendanceStatus, ChurchEvent, EventInput, Ministry, MyAssignment,
+  Api, Branding, Assignment, Followup, FollowupInput, AttendanceStatus, ChurchEvent, EventInput, Ministry, MyAssignment,
   Profile, Role, Session, Volunteer, VolunteerInput,
 } from "./types";
 
@@ -22,6 +23,15 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
 
   return {
     mode: "supabase",
+
+    async getBranding() {
+      const row = check(await sb.from("settings").select("org_name, app_title, tagline, primary_color, accent_color, logo").eq("id", 1).maybeSingle()) as Branding | null;
+      return { ...DEFAULT_BRANDING, ...(row ?? {}) };
+    },
+
+    async saveBranding(b: Branding) {
+      check(await sb.from("settings").update(b).eq("id", 1));
+    },
 
     async getSession(): Promise<Session | null> {
       const user = await currentUser();
@@ -140,6 +150,27 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
 
     async unassign(assignmentId) {
       check(await sb.from("assignments").delete().eq("id", assignmentId));
+    },
+
+    async listFollowups() {
+      return check(await sb.from("followups").select("id, volunteer_id, note, due, assigned_to, done, done_at, created_at").order("due", { ascending: true, nullsFirst: false })) as Followup[];
+    },
+
+    async saveFollowup(input: FollowupInput, id?: string) {
+      const q = id ? sb.from("followups").update(input).eq("id", id) : sb.from("followups").insert(input);
+      return check(await q.select().single()) as Followup;
+    },
+
+    async setFollowupDone(id: string, done: boolean) {
+      check(await sb.from("followups").update({ done, done_at: done ? new Date().toISOString() : null }).eq("id", id));
+    },
+
+    async deleteFollowup(id: string) {
+      check(await sb.from("followups").delete().eq("id", id));
+    },
+
+    async deleteMinistry(id: string) {
+      check(await sb.from("ministries").delete().eq("id", id));
     },
 
     async listProfiles() {

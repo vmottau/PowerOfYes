@@ -3,7 +3,8 @@ import { useApi, type Branding, type Ministry, type Role } from "../api";
 import { PageHeader, useAppState } from "../App";
 import { Icon } from "../components/Icon";
 import { Logo, useBranding } from "../lib/branding";
-import { errText, useLoad, useToast } from "../lib/hooks";
+import { churchLink } from "../api/churchChoice";
+import { copyText, errText, useLoad, useToast } from "../lib/hooks";
 
 type Tab = "areas" | "people" | "appearance";
 
@@ -146,46 +147,105 @@ function NewArea({ kind, nextSort, onSaved }: { kind: Ministry["kind"]; nextSort
 const ROLES: { id: Role; label: string; help: string }[] = [
   { id: "volunteer", label: "Volunteer", help: "Their own card and assignments" },
   { id: "coordinator", label: "Coordinator", help: "All volunteers, events, follow-ups and lists" },
-  { id: "admin", label: "Admin", help: "Everything, plus roles and appearance" },
+  { id: "admin", label: "Church admin", help: "Everything, plus people, roles and appearance" },
 ];
 
 function People({ canEdit }: { canEdit: boolean }) {
   const api = useApi();
   const toast = useToast();
-  const { session } = useAppState();
-  const people = useLoad(() => api.listProfiles(), [api]);
+  const { session, church } = useAppState();
+  const people = useLoad(async () => {
+    const [members, invites] = await Promise.all([api.listProfiles(), api.listInvites()]);
+    return { members, invites };
+  }, [api]);
   const [q, setQ] = useState("");
-  async function changeRole(id: string, role: Role) {
-    try { await api.setRole(id, role); toast("Role updated"); } catch (e) { toast(errText(e)); }
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<Role>("coordinator");
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
+
+  async function act(fn: () => Promise<unknown>, msg: string) {
+    try { await fn(); toast(msg); } catch (e) { toast(errText(e)); }
     await people.reload();
   }
-  const list = (people.data ?? []).filter((p) => !q.trim() || p.email.toLowerCase().includes(q.trim().toLowerCase()));
+  async function invite(e: FormEvent) {
+    e.preventDefault();
+    const em = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { toast("Enter a full email address."); return; }
+    try {
+      const r = await api.invite(em, role);
+      toast(r === "added" ? `${em} is now a ${ROLES.find((x) => x.id === role)!.label.toLowerCase()}` : `Invited ${em}. Their role starts when they first sign in.`);
+      setEmail("");
+    } catch (err) { toast(errText(err)); }
+    await people.reload();
+  }
+  const list = (people.data?.members ?? []).filter((p) => !q.trim() || p.email.toLowerCase().includes(q.trim().toLowerCase()));
+  const link = church ? churchLink(church.slug) : "";
+
   return (
-    <section className="panel">
-      <div className="panelhead"><h2>Everyone who has signed in</h2><span className="muted small">{people.data?.length ?? ""}</span></div>
-      <p className="muted small">{canEdit ? "Make someone a Coordinator after they've signed in once." : "Only an admin can change roles."}</p>
-      <input type="search" id="people-q" className="input narrow" placeholder="Search by email" aria-label="Search people" value={q} onChange={(e) => setQ(e.target.value)} />
-      {people.error && <div className="notice">{people.error}</div>}
-      <div className="tablewrap">
-        <table className="table">
-          <thead><tr><th>Email</th><th>Role</th></tr></thead>
-          <tbody>
-            {list.map((p) => (
-              <tr key={p.id}>
-                <td>{p.email}{p.id === session.userId && <span className="muted"> (you)</span>}</td>
-                <td>{canEdit ? (
-                  <select aria-label={`Role for ${p.email}`} value={p.role} onChange={(e) => void changeRole(p.id, e.target.value as Role)}>
-                    {ROLES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
-                  </select>
-                ) : ROLES.find((r) => r.id === p.role)?.label}</td>
-              </tr>
-            ))}
-            {people.data && !list.length && <tr><td colSpan={2} className="muted">No one matches.</td></tr>}
-          </tbody>
-        </table>
+    <div className="managegrid">
+      <section className="panel">
+        <div className="panelhead"><h2>People at {church?.org_name}</h2><span className="muted small">{people.data?.members.length ?? ""}</span></div>
+        <p className="muted small">{canEdit ? "Everyone who has joined this church. Change a role, or remove someone from this church." : "Only a church admin can change roles."}</p>
+        <input type="search" id="people-q" className="input narrow" placeholder="Search by email" aria-label="Search people" value={q} onChange={(e) => setQ(e.target.value)} />
+        {people.error && <div className="notice">{people.error}</div>}
+        <div className="tablewrap">
+          <table className="table">
+            <thead><tr><th>Email</th><th>Role</th>{canEdit && <th><span className="visually-hidden">Remove</span></th>}</tr></thead>
+            <tbody>
+              {list.map((p) => (
+                <tr key={p.id}>
+                  <td>{p.email}{p.id === session.userId && <span className="muted"> (you)</span>}</td>
+                  <td>{canEdit ? (
+                    <select aria-label={`Role for ${p.email}`} value={p.role} onChange={(e) => void act(() => api.setRole(p.id, e.target.value as Role), "Role updated")}>
+                      {ROLES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}
+                    </select>
+                  ) : ROLES.find((r) => r.id === p.role)?.label}</td>
+                  {canEdit && <td className="right">
+                    {confirmRemove === p.id ? (
+                      <span className="confirmdel">Remove?
+                        <button className="btn danger small" type="button" onClick={() => { setConfirmRemove(null); void act(() => api.removeMember(p.id), `Removed ${p.email}`); }}>Remove</button>
+                        <button className="btn small" type="button" onClick={() => setConfirmRemove(null)}>Keep</button>
+                      </span>
+                    ) : p.id !== session.userId && <button className="iconbtn sm" type="button" aria-label={`Remove ${p.email} from this church`} title="Remove from this church" onClick={() => setConfirmRemove(p.id)}><Icon name="x" size={16} /></button>}
+                  </td>}
+                </tr>
+              ))}
+              {people.data && !list.length && <tr><td colSpan={3} className="muted">No one matches.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <ul className="rolehelp">{ROLES.map((r) => <li key={r.id}><b>{r.label}:</b> {r.help}</li>)}</ul>
+      </section>
+
+      <div className="stack">
+        <section className="panel">
+          <div className="panelhead"><h2>Volunteer sign-up link</h2></div>
+          <p className="muted small">Share this in the bulletin, on the website or as a QR code. Anyone who signs up through it joins {church?.org_name}.</p>
+          <div className="linkbox"><code>{link}</code><button className="btn small" type="button" onClick={() => void copyText(link, "sign-up link", toast)}>Copy</button></div>
+        </section>
+        {canEdit && (
+          <form className="panel" onSubmit={invite} noValidate>
+            <div className="panelhead"><h2>Invite someone</h2></div>
+            <p className="muted small">Give a coordinator or another admin their role ahead of time. It applies the first time they sign in with this email.</p>
+            <div className="field"><label htmlFor="inv-email">Email</label><input id="inv-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.org" /></div>
+            <div className="field"><label htmlFor="inv-role">Role</label>
+              <select id="inv-role" value={role} onChange={(e) => setRole(e.target.value as Role)}>{ROLES.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}</select></div>
+            <div><button className="btn primary" type="submit">Send invite</button></div>
+            {(people.data?.invites.length ?? 0) > 0 && (
+              <div className="invites">
+                <h3 className="subhead">Waiting to sign in</h3>
+                {people.data!.invites.map((i) => (
+                  <div key={i.id} className="inviterow">
+                    <span className="minw0">{i.email} <span className="muted small">· {ROLES.find((r) => r.id === i.role)?.label}</span></span>
+                    <button className="linkbtn" type="button" onClick={() => void act(() => api.cancelInvite(i.id), "Invite cancelled")}>Cancel</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </form>
+        )}
       </div>
-      <ul className="rolehelp">{ROLES.map((r) => <li key={r.id}><b>{r.label}:</b> {r.help}</li>)}</ul>
-    </section>
+    </div>
   );
 }
 
@@ -214,7 +274,8 @@ async function shrinkImage(file: File, max = 256): Promise<string> {
 function Appearance() {
   const api = useApi();
   const toast = useToast();
-  const { saved, reload, preview } = useBranding();
+  const { saved, preview } = useBranding();
+  const { refreshSession } = useAppState();
   const [b, setB] = useState<Branding>(saved);
   const [busy, setBusy] = useState(false);
   useEffect(() => { preview(b); }, [b, preview]);
@@ -225,7 +286,7 @@ function Appearance() {
     e.preventDefault();
     if (!b.org_name.trim() || !b.app_title.trim()) { toast("Add the church name and the app's title."); return; }
     setBusy(true);
-    try { await api.saveBranding({ ...b, org_name: b.org_name.trim(), app_title: b.app_title.trim(), tagline: b.tagline.trim() }); await reload(); preview(null); toast("Appearance saved for everyone"); }
+    try { await api.saveBranding({ ...b, org_name: b.org_name.trim(), app_title: b.app_title.trim(), tagline: b.tagline.trim() }); await refreshSession(); preview(null); toast("Appearance saved for everyone"); }
     catch (err) { toast(errText(err)); } finally { setBusy(false); }
   }
 

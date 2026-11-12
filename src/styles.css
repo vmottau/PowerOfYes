@@ -382,9 +382,31 @@ dialog h2 { font-family: var(--display); font-size: 28px; text-transform: upperc
 .signin-card p { margin: 0; }
 .demo-hint { font-size: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; color: var(--muted); }
 .demo-hint b { color: var(--fg); }
+.demo-hint p { margin: 0; }
+.demo-hint a { color: var(--brand); font-weight: 600; }
 .demo-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 820px) {
   .signin { grid-template-columns: 1fr; }
   .signin-hero { padding-block: 36px 40px; }
   .signin-hero h1 { font-size: clamp(44px, 13vw, 64px); }
 }
+
+/* ---------- multiple churches ---------- */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.switchwrap { padding: 0 6px 14px; }
+.churchswitch { width: 100%; background: rgb(255 255 255 / .1); color: var(--side-fg); border: 1px solid rgb(255 255 255 / .2); border-radius: 10px; padding: 8px 10px; font-weight: 600; }
+.churchswitch option { color: #1b1821; }
+.mobileright { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.mobileright .churchswitch { width: auto; max-width: 46vw; padding: 6px 8px; font-size: 14px; }
+.churchlist { margin-top: 14px; max-width: 760px; }
+.churchrow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.churchrow.off { background: var(--bg); }
+.churchrow b { margin-right: 8px; }
+.linkline { overflow-wrap: anywhere; }
+.linkbox { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.linkbox code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.stack { display: grid; gap: 14px; align-content: start; min-width: 0; }
+.invites { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+.inviterow { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.table td.right { text-align: right; }
+.signin-note { position: relative; z-index: 1; margin: 6px 0 0; color: var(--side-muted); max-width: 40ch; font-size: 15px; }

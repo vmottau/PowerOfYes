@@ -121,13 +121,11 @@ function Shell() {
   ];
   const home = staff ? "/home" : church ? "/me" : "/churches";
 
-  const switcher = (session.memberships.length > 1 || !session.isPlatformAdmin) && (
+  const switcher = session.memberships.length > 1 && (
     <select className="churchswitch" aria-label="Switch church" value={church?.id ?? ""} onChange={async (e) => {
-      if (e.target.value === "__find") { nav("/find"); return; }
       await switchChurch(e.target.value); nav("/");
     }}>
       {session.memberships.map((m) => <option key={m.church.id} value={m.church.id}>{m.church.org_name}</option>)}
-      {!session.isPlatformAdmin && <option value="__find">Join another church…</option>}
     </select>
   );
 
@@ -181,7 +179,6 @@ function Shell() {
           {staff && <Route path="/followups" element={<Followups />} />}
           {staff && <Route path="/manage" element={<Manage />} />}
           {session.isPlatformAdmin && <Route path="/churches" element={<Churches />} />}
-          <Route path="/find" element={<ChooseChurch embedded />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

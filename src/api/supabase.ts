@@ -32,11 +32,8 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     mode: "supabase",
 
     async getChurchBySlug(slug) {
-      return check(await sb.from("churches").select(CHURCH_COLS).eq("slug", slug.toLowerCase()).maybeSingle()) as Church | null;
-    },
-
-    async listPublicChurches() {
-      return check(await sb.from("churches").select(CHURCH_COLS).eq("active", true).order("org_name")) as Church[];
+      const rows = check(await sb.rpc("church_by_slug", { church_slug: slug })) as Church[] | null;
+      return rows?.[0] ?? null;
     },
 
     async getSession(): Promise<Session | null> {

@@ -12,8 +12,9 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 One copy of the site serves any number of churches. Each church's volunteers, events and follow-ups are kept separate by the database's access rules, so a coordinator at one church never sees another church's people.
 
 - Each church has its own link, like `https://vmottau.github.io/PowerOfYes/#/c/st-marys`. Someone who opens it sees that church's name and colors, and joins that church when they sign in.
-- Someone who signs in without a link picks their church from a list.
-- A person can volunteer at more than one church and switch between them from the menu.
+- People never pick from a list of churches. They join only through their church's link or an email invite from their church. Someone who signs in without either is asked to open their church's link.
+- Only the platform owner can see every church, under **All churches**.
+- Someone who follows the links of two churches can switch between just those two from the menu.
 
 ## Make it your church's
 Everything that identifies a church is set in the app, under **Manage → Appearance**: church name, app title, welcome line, two colors (with ready-made palettes) and a logo. Each church on the site has its own look.

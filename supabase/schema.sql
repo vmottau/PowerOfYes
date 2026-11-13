@@ -415,6 +415,17 @@ begin
 end;
 $$;
 
+-- The name and look of the one church behind a link like /#/c/st-marys, for its sign-in page.
+create or replace function public.church_by_slug(church_slug text)
+returns table (id uuid, slug text, org_name text, app_title text, tagline text,
+               primary_color text, accent_color text, logo text, active boolean)
+language sql stable security definer set search_path = public as $$
+  select c.id, c.slug, c.org_name, c.app_title, c.tagline, c.primary_color, c.accent_color, c.logo, c.active
+  from public.churches c where c.slug = lower(trim(church_slug))
+$$;
+revoke execute on function public.church_by_slug(text) from public;
+grant execute on function public.church_by_slug(text) to anon, authenticated;
+
 revoke execute on function public.sync_me() from public, anon;
 revoke execute on function public.join_church(text) from public, anon;
 revoke execute on function public.create_church(text, text, text) from public, anon;
@@ -446,8 +457,9 @@ create policy "profiles: platform owner updates" on public.profiles
 
 -- churches: anyone can read active churches (the sign-in page shows the church's name and colors)
 drop policy if exists "churches: read" on public.churches;
+-- Members see only their own churches; only the platform owner sees them all.
 create policy "churches: read" on public.churches
-  for select to anon, authenticated using (active or public.is_platform_admin());
+  for select to authenticated using (public.is_member(id));
 drop policy if exists "churches: admin updates" on public.churches;
 create policy "churches: admin updates" on public.churches
   for update to authenticated using (public.is_church_admin(id)) with check (public.is_church_admin(id));
@@ -529,4 +541,5 @@ create policy "assignments: staff write" on public.assignments
 
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on all tables in schema public to authenticated;
-grant select on public.churches to anon;
+-- Visitors never list churches. A church link looks up that one church through church_by_slug().
+revoke select on public.churches from anon;

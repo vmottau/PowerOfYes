@@ -43,18 +43,18 @@ insert into volunteers (church_id, name, email, ministries, source)
   select id, 'Card Person', 'CARD@example.org', '{pierogies}', 'card' from churches where slug = 'st-one';
 insert into volunteer_notes (volunteer_id, church_id, notes) select id, church_id, 'staff note' from volunteers;
 insert into events (church_id, name, date, area) select id, 'Pierogi batch', '2030-01-01', 'pierogies' from churches where slug = 'st-one';
-select pg_temp.expect((select count(*) from churches) = 2, 'everyone can read the church list');
+select pg_temp.expect((select count(*) from churches) = 1, 'a church admin sees only their own church');
 
 -- church 1 admin cannot touch church 2
 do $$ begin
   update churches set org_name = 'Hacked' where slug = 'st-two';
   if found then raise exception 'FAIL: admin 1 edited church 2'; end if;
   begin
-    insert into events (church_id, name) select id, 'Sneaky' from churches where slug = 'st-two';
+    insert into events (church_id, name) select id, 'Sneaky' from church_by_slug('st-two');
     raise exception 'FAIL: admin 1 created an event in church 2';
   exception when insufficient_privilege then null; end;
   begin
-    perform invite_to_church((select id from churches where slug = 'st-two'), 'x@example.org', 'admin');
+    perform invite_to_church((select id from church_by_slug('st-two')), 'x@example.org', 'admin');
     raise exception 'FAIL: admin 1 invited into church 2';
   exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
 end $$;
@@ -93,10 +93,10 @@ do $$ begin
     raise exception 'FAIL: second card in same church';
   exception when insufficient_privilege or unique_violation then null; end;
   begin
-    insert into volunteers (church_id, name, user_id) select id, 'Not a member', auth.uid() from churches where slug = 'st-one';
+    insert into volunteers (church_id, name, user_id) select id, 'Not a member', auth.uid() from church_by_slug('st-one');
     raise exception 'FAIL: card in a church they did not join';
   exception when insufficient_privilege then null; end;
-  update volunteers set church_id = (select id from churches where slug = 'st-one') where name = 'Vol One';
+  update volunteers set church_id = (select id from church_by_slug('st-one')) where name = 'Vol One';
 end $$;
 select pg_temp.expect((select c.slug from volunteers v join churches c on c.id = v.church_id where v.name = 'Vol One') = 'st-two', 'card cannot be moved to another church');
 select pg_temp.expect((select count(*) from followups) = 0, 'volunteer sees no follow-ups');
@@ -132,11 +132,25 @@ reset role;
 select pg_temp.expect((select count(*) from volunteers where name = 'Vol One') = 0, 'deleting a church removes its data');
 select pg_temp.expect((select count(*) from memberships m where not exists (select 1 from churches c where c.id = m.church_id)) = 0, 'no orphaned memberships');
 
--- anonymous visitors can read active churches only
-update churches set active = false where slug = 'st-one';
+-- nobody but the platform owner can list churches; a link reveals only its own church
+reset role;
+insert into churches (slug, org_name) values ('st-three', 'Church Three');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.expect((select count(*) from churches) = 1, 'a volunteer sees only their own church');
+select pg_temp.expect((select count(*) from church_by_slug('st-three')) = 1, 'a church link shows that church');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a0');
+select pg_temp.expect((select count(*) from churches) = 2, 'the platform owner sees every church');
 select pg_temp.as_user('');
 set role anon;
-select pg_temp.expect((select count(*) from churches) = 0, 'inactive churches are hidden from visitors');
+do $$ begin
+  begin
+    perform count(*) from churches;
+    raise exception 'FAIL: visitors could list churches';
+  exception when insufficient_privilege then null; end;
+end $$;
+select pg_temp.expect((select org_name from church_by_slug('st-three')) = 'Church Three', 'a visitor with the link sees that church''s name');
+select pg_temp.expect((select count(*) from church_by_slug('st-')) = 0, 'a partial link name finds nothing');
 reset role;
 
 select 'ALL RLS CHECKS PASSED' as result;

@@ -28,7 +28,7 @@ interface Store {
   sessionUserId: string | null;
 }
 
-const KEY = "pov-demo-v3";
+const KEY = "pov-demo-v4";
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 const iso = (daysFromNow: number) => {
   const d = new Date(Date.now() + daysFromNow * 86400000);
@@ -67,6 +67,7 @@ function seed(): Store {
   const invites: Row<Invite>[] = [
     { id: uid(), church_id: c1.id, email: "admin@example.org", role: "admin", created_at: now },
     { id: uid(), church_id: c1.id, email: "coordinator@example.org", role: "coordinator", created_at: now },
+    { id: uid(), church_id: c1.id, email: "volunteer@example.org", role: "volunteer", created_at: now },
     { id: uid(), church_id: c2.id, email: "grace-admin@example.org", role: "admin", created_at: now },
   ];
   return { accounts: [], churches: [c1, c2], memberships: [], invites, ministries, volunteers, events, assignments, followups, sessionUserId: null };
@@ -116,7 +117,6 @@ export function createDemoApi(): Api {
     mode: "demo",
 
     async getChurchBySlug(slug) { return out(s.churches.find((c) => c.slug === slug.toLowerCase()) ?? null); },
-    async listPublicChurches() { return out(s.churches.filter((c) => c.active).sort((a, b) => a.org_name.localeCompare(b.org_name))); },
 
     async getSession(): Promise<Session | null> {
       const a = me();

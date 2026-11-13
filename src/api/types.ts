@@ -131,7 +131,6 @@ export interface Api {
   /** Public: the church behind a link like /#/c/st-marys (works before sign-in). */
   getChurchBySlug(slug: string): Promise<Church | null>;
   /** Public: active churches, for the "find your church" list. */
-  listPublicChurches(): Promise<Church[]>;
   getSession(): Promise<Session | null>;
   onAuthChange(cb: () => void): () => void;
   /** Sends a sign-in link to the email address. */

@@ -410,3 +410,5 @@ dialog h2 { font-family: var(--display); font-size: 28px; text-transform: upperc
 .inviterow { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
 .table td.right { text-align: right; }
 .signin-note { position: relative; z-index: 1; margin: 6px 0 0; color: var(--side-muted); max-width: 40ch; font-size: 15px; }
+.nochurch { max-width: 560px; display: grid; gap: 10px; }
+.nochurch p { margin: 0; }

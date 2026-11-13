@@ -35,7 +35,7 @@ export function SignIn({ error, church, badLink }: { error: string | null; churc
           <li>See where you're scheduled</li>
           <li>Hear from a coordinator when something fits</li>
         </ul>
-        {!church && <p className="signin-note">Volunteering at a church? Open the link your church shared, or sign in and pick your church.</p>}
+        {!church && <p className="signin-note">Volunteering at a church? Open the sign-up link your church shared with you.</p>}
       </section>
       <section className="signin-panel">
         <div className="signin-card">
@@ -48,7 +48,7 @@ export function SignIn({ error, church, badLink }: { error: string | null; churc
           ) : (
             <form onSubmit={submit} noValidate>
               <h2>{church ? `Volunteer at ${church.org_name}` : "Volunteer sign-up and sign-in"}</h2>
-              {badLink && <p className="warn">That church link isn't valid any more. Sign in and pick your church from the list.</p>}
+              {badLink && <p className="warn">That church link isn't valid. Ask your church for its current sign-up link.</p>}
               {church && !church.active && <p className="warn">{church.org_name} isn't taking sign-ups right now.</p>}
               <p className="muted">New or returning, enter your email. We'll send you a link, so there's no password to remember.</p>
               <div className="field">
@@ -59,13 +59,12 @@ export function SignIn({ error, church, badLink }: { error: string | null; churc
               <button className="btn primary wide big" type="submit" disabled={busy}>{busy ? "Sending…" : api.mode === "demo" ? "Sign in (demo)" : "Email me a sign-in link"}</button>
               {api.mode === "demo" && (
                 <div className="demo-hint">
-                  <p><b>Demo mode.</b> Pick a role to try, or open a church link: <a href="#/c/st-example" onClick={() => setTimeout(() => location.reload())}>St. Example</a> or <a href="#/c/grace" onClick={() => setTimeout(() => location.reload())}>Grace</a>.</p>
+                  <p><b>Demo mode.</b> Pick a role to try. New volunteers join through a church link: <a href="#/c/st-example" onClick={() => setTimeout(() => location.reload())}>St. Example</a> or <a href="#/c/grace" onClick={() => setTimeout(() => location.reload())}>Grace</a>.</p>
                   <div className="demo-buttons">
                     <button type="button" className="btn small" onClick={() => setEmail("volunteer@example.org")}>Volunteer</button>
                     <button type="button" className="btn small" onClick={() => setEmail("coordinator@example.org")}>Coordinator</button>
                     <button type="button" className="btn small" onClick={() => setEmail("admin@example.org")}>Church admin</button>
                     <button type="button" className="btn small" onClick={() => setEmail("owner@example.org")}>Platform owner</button>
-                    <button type="button" className="btn small" onClick={() => setEmail("ann@example.org")}>Ann (paper card)</button>
                   </div>
                 </div>
               )}

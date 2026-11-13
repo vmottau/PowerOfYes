@@ -91,23 +91,31 @@ await signIn("newbie@example.org");
 await p.waitForSelector("text=Example: Fall pierogi batch");
 ok(true, "volunteer sees the event they were assigned to");
 
-// 5. The same volunteer joins a second church and switches between them
-await p.selectOption("select[aria-label='Switch church']", "__find");
-await p.waitForSelector(".churchrow:has-text('Grace Community Church')");
-await p.click(".churchrow:has-text('Grace Community Church') >> text=Join");
+ok(!(await p.isVisible("select[aria-label='Switch church']")), "a volunteer at one church sees no church picker");
+await signOut();
+
+// 5. The same volunteer opens a second church's link and can switch between their own two churches only
+await signIn("newbie@example.org", "grace");
 await p.waitForSelector("text=Fill in your volunteer card");
-ok(await p.isVisible(".apptitle:has-text('Serve at Grace')"), "volunteer joined a second church and sees its look");
+ok(await p.isVisible(".apptitle:has-text('Serve at Grace')"), "volunteer joined a second church through its link and sees its look");
+const opts = await p.locator("select[aria-label='Switch church']:visible option").allTextContents();
+ok(opts.length === 2 && opts.includes("St. Example Parish") && opts.includes("Grace Community Church"), "switcher lists only the volunteer's own churches (" + opts.join(", ") + ")");
 await signOut();
 
-// 6. Paper-card person picks their church and gets their card and history
-await signIn("ann@example.org");
-await p.waitForSelector(".churchrow:has-text('St. Example Parish')");
-await p.click(".churchrow:has-text('St. Example Parish') >> text=Join");
+// 6. Someone who signs in without a church link sees no list of churches
+await p.goto(base); await p.reload();
+await p.fill("#signin-email", "stranger@example.org"); await p.click("button[type=submit]");
+await p.waitForSelector("text=Open your church's link");
+ok(!(await p.isVisible("text=Grace Community Church")) && !(await p.isVisible("text=St. Example Parish")), "no church names are shown to someone without a link");
+await p.click("text=Sign out"); await p.waitForSelector("#signin-email");
+
+// 7. Paper-card person opens their church's link and gets their card and history
+await signIn("ann@example.org", "st-example");
 await p.waitForSelector("text=You served");
-ok(true, "paper-card volunteer is linked to their card after joining");
+ok(true, "paper-card volunteer is linked to their card after joining through the link");
 await signOut();
 
-// 7. Church admin: invites, roles, appearance
+// 8. Church admin: invites, roles, appearance
 await signIn("admin@example.org");
 await go("Manage");
 await p.click("button[role=tab]:has-text('People')");
@@ -129,7 +137,7 @@ const brand = await p.evaluate(() => getComputedStyle(document.documentElement).
 ok(brand === "#6b2259", "admin can change the church's colors (" + brand + ")");
 await signOut();
 
-// 8. Platform owner adds a church
+// 9. Platform owner adds a church
 await signIn("owner@example.org");
 await go("All churches");
 await p.fill("#ch-name", "St. Mary's Parish"); await p.fill("#ch-admin", "office@stmarys.example");

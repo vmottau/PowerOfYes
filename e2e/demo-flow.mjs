@@ -98,8 +98,11 @@ await signOut();
 await signIn("newbie@example.org", "grace");
 await p.waitForSelector("text=Fill in your volunteer card");
 ok(await p.isVisible(".apptitle:has-text('Serve at Grace')"), "volunteer joined a second church through its link and sees its look");
-const opts = await p.locator("select[aria-label='Switch church']:visible option").allTextContents();
-ok(opts.length === 2 && opts.includes("St. Example Parish") && opts.includes("Grace Community Church"), "switcher lists only the volunteer's own churches (" + opts.join(", ") + ")");
+ok((await p.locator("select[aria-label='Switch church']").count()) === 0, "no church picker on the card page");
+await signOut();
+await signIn("newbie@example.org", "st-example");
+await p.waitForSelector("text=Example: Fall pierogi batch");
+ok(true, "opening a church's link switches to that church");
 await signOut();
 
 // 6. Someone who signs in without a church link sees no list of churches
@@ -139,6 +142,7 @@ await signOut();
 
 // 9. Platform owner adds a church
 await signIn("owner@example.org");
+ok((await p.locator("select[aria-label='Switch church']").count()) === 0, "platform owner has no church picker either");
 await go("All churches");
 await p.fill("#ch-name", "St. Mary's Parish"); await p.fill("#ch-admin", "office@stmarys.example");
 ok((await p.inputValue("#ch-slug")) === "st-mary-s-parish", "link name is suggested from the church name");

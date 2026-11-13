@@ -14,7 +14,7 @@ One copy of the site serves any number of churches. Each church's volunteers, ev
 - Each church has its own link, like `https://vmottau.github.io/PowerOfYes/#/c/st-marys`. Someone who opens it sees that church's name and colors, and joins that church when they sign in.
 - People never pick from a list of churches. They join only through their church's link or an email invite from their church. Someone who signs in without either is asked to open their church's link.
 - Only the platform owner can see every church, under **All churches**.
-- Someone who follows the links of two churches can switch between just those two from the menu.
+- There is no church picker anywhere. Someone who volunteers at two churches opens each church's link to go to it. The platform owner opens a church from **All churches**.
 
 ## Make it your church's
 Everything that identifies a church is set in the app, under **Manage → Appearance**: church name, app title, welcome line, two colors (with ready-made palettes) and a logo. Each church on the site has its own look.

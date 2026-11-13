@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { HashRouter, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { HashRouter, NavLink, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useApi, type Church, type Ministry, type Session } from "./api";
 import { resetDemo } from "./api/demo";
 import { clearChurchLink, readChurchLink } from "./api/churchChoice";
@@ -98,9 +98,8 @@ export function App() {
 
 function Shell() {
   const api = useApi();
-  const nav = useNavigate();
   const { branding } = useBranding();
-  const { session, church, switchChurch } = useAppState();
+  const { session, church } = useAppState();
   const role = church ? session.profile.role : "volunteer";
   const staff = !!church && (role === "coordinator" || role === "admin");
   const wide = staff || session.isPlatformAdmin;
@@ -121,13 +120,6 @@ function Shell() {
   ];
   const home = staff ? "/home" : church ? "/me" : "/churches";
 
-  const switcher = session.memberships.length > 1 && (
-    <select className="churchswitch" aria-label="Switch church" value={church?.id ?? ""} onChange={async (e) => {
-      await switchChurch(e.target.value); nav("/");
-    }}>
-      {session.memberships.map((m) => <option key={m.church.id} value={m.church.id}>{m.church.org_name}</option>)}
-    </select>
-  );
 
   return (
     <div className={"shell" + (wide ? "" : " shell-simple")}>
@@ -144,7 +136,7 @@ function Shell() {
             <Icon name={menuOpen ? "x" : "menu"} />
           </button>
         ) : (
-          <div className="mobileright">{switcher}<button className="iconbtn" type="button" aria-label="Sign out" onClick={() => void api.signOut()}><Icon name="logout" /></button></div>
+          <div className="mobileright"><button className="iconbtn" type="button" aria-label="Sign out" onClick={() => void api.signOut()}><Icon name="logout" /></button></div>
         )}
       </header>
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
@@ -155,7 +147,6 @@ function Shell() {
             <div className="orgname">{church ? branding.org_name : "Platform"}</div>
           </div>
         </div>
-        {switcher && <div className="switchwrap">{switcher}</div>}
         <nav aria-label="Main">
           {items.map((n) => <NavLink key={n.to} to={n.to} className="navitem"><Icon name={n.icon} /><span>{n.label}</span></NavLink>)}
         </nav>

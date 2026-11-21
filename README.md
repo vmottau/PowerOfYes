@@ -87,6 +87,7 @@ npm run test:e2e
 ```
 
 ## Ideas for later
+See [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) for the full prioritized list. Top picks:
 - Volunteers sign themselves up for open events
 - Email or text reminders before an event
 - Attendance reports by ministry and season

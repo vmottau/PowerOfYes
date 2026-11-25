@@ -7,7 +7,7 @@ on:
 
 jobs:
   checks:
-    runs-on: ubuntu-24.04  # Playwright does not support ubuntu-latest (26.04) yet
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:16

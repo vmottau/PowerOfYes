@@ -6,7 +6,9 @@ import { FollowupForm } from "../components/FollowupForm";
 import { Modal } from "../components/Modal";
 import { VolunteerFields, validateVolunteer } from "../components/VolunteerFields";
 import { EventForm } from "../components/EventForm";
-import { digits, isPast, longDate, plural } from "../lib/format";
+import { PrintSheet } from "../components/PrintSheet";
+import { downloadCSV, fileSlug } from "../lib/export";
+import { digits, fmtPhone, isPast, longDate, plural, todayISO } from "../lib/format";
 import { HistoryLine, historyByVolunteer } from "../lib/history";
 import { copyText, errText, useLoad, useToast } from "../lib/hooks";
 
@@ -49,6 +51,27 @@ export function Directory() {
   const filtering = !!(q || areas.size || status);
   const openFus = (id: string) => (data.data?.fus ?? []).filter((f) => f.volunteer_id === id && !f.done).length;
   const upcoming = events.filter((e) => !isPast(e.date)).sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
+
+  const labelOf = (id: string) => ministries.find((m) => m.id === id)?.label ?? id;
+  const interestsOf = (v: Volunteer) => ministries.filter((m) => v.ministries.includes(m.id)).map((m) => m.label).join("; ");
+  const listTitle = areas.size ? `Volunteers: ${[...areas].map(labelOf).join(", ")}` : "Volunteer directory";
+  const listMeta = [
+    plural(shown.length, "volunteer"),
+    status ? (status === "todo" ? "not contacted yet" : status === "done" ? "contacted" : "signed up online") : "",
+    q.trim() ? `matching “${q.trim()}”` : "",
+  ];
+
+  function downloadList() {
+    const name = ["volunteers", ...[...areas].map((id) => fileSlug(labelOf(id))), todayISO()].join("-") + ".csv";
+    downloadCSV(name,
+      ["Name", "Phone", "Email", "Interests", "Contacted", "Has login", "Came from", "Times served", "Times missed", "Upcoming", "Open follow-ups", "Staff notes", "Added on"],
+      shown.map((v) => {
+        const h = hist.get(v.id);
+        return [v.name, fmtPhone(v.phone), v.email, interestsOf(v), v.contacted, !!v.user_id, v.source === "card" ? "Paper card" : "Online",
+          h?.attended ?? 0, h?.missed ?? 0, h?.upcoming ?? 0, openFus(v.id), v.notes, v.created_at.slice(0, 10)];
+      }));
+    toast(`Downloaded ${plural(shown.length, "volunteer")}`);
+  }
 
   const toggleArea = (id: string) => setAreas((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const togglePick = (id: string, on: boolean) => setPicked((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
@@ -115,6 +138,8 @@ export function Directory() {
         </p>
         <div className="actions">
           {filtering && <button className="linkbtn" type="button" onClick={() => { setQ(""); setAreas(new Set()); setStatus(null); }}>Clear filters</button>}
+          <button className="btn" type="button" disabled={!shown.length} onClick={downloadList}>Download spreadsheet</button>
+          <button className="btn" type="button" disabled={!shown.length} onClick={() => window.print()}>Print list</button>
           <button className="btn" type="button" disabled={!shown.length} onClick={() => setPicked(new Set([...picked, ...shown.map((v) => v.id)]))}>Select all shown</button>
           <button className="btn" type="button" disabled={!shown.some((v) => v.email)} onClick={() => {
             const em = [...new Set(shown.map((v) => v.email).filter(Boolean))];
@@ -180,6 +205,13 @@ export function Directory() {
           </div>
         </div>
       )}
+
+      <PrintSheet
+        title={listTitle}
+        meta={listMeta}
+        columns={[{ label: "Name", width: "21%" }, { label: "Phone", width: "13%" }, { label: "Email", width: "24%" }, { label: "Interests" }, { label: "Notes", kind: "blank", width: "13%" }]}
+        rows={shown.map((v) => [v.name, fmtPhone(v.phone), v.email, interestsOf(v).replace(/; /g, ", ")])}
+      />
 
       <Modal open={editing !== null} onClose={() => setEditing(null)} labelledBy="vol-dlg-title">
         {editing !== null && (

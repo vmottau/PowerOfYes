@@ -430,3 +430,26 @@ dialog h2 { font-family: var(--display); font-size: 28px; text-transform: upperc
 .rrow.cant .reason { display: block; color: var(--fg); font-style: italic; margin-top: 2px; }
 .rrow.cant .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 560px) { .rrow.cant .actions { grid-column: 1 / -1; justify-content: flex-start; } }
+
+/* ---------- printed rosters (components/PrintSheet.tsx) ---------- */
+.printsheet { display: none; }
+@media print {
+  @page { margin: 14mm 12mm; }
+  body:has(> .printsheet) { background: white; }
+  body:has(> .printsheet) > :not(.printsheet) { display: none !important; }
+  .printsheet { display: block; color: black; font-family: var(--body); font-size: 11pt; line-height: 1.3; }
+  .printsheet header { margin-bottom: 10pt; border-bottom: 2pt solid black; padding-bottom: 6pt; }
+  .printsheet .ps-org { font-size: 10pt; text-transform: uppercase; letter-spacing: .08em; }
+  .printsheet h1 { font-family: var(--display); font-size: 22pt; font-weight: 800; text-transform: uppercase; margin: 2pt 0 0; line-height: 1.05; }
+  .printsheet .ps-meta { margin: 4pt 0 0; font-size: 11pt; }
+  .printsheet table { width: 100%; border-collapse: collapse; }
+  .printsheet thead { display: table-header-group; }
+  .printsheet tr { break-inside: avoid; }
+  .printsheet th { text-align: left; font-size: 9pt; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1.5pt solid black; padding: 4pt 6pt; }
+  .printsheet td { border-bottom: .75pt solid #888; padding: 7pt 6pt; vertical-align: top; overflow-wrap: anywhere; }
+  .printsheet .num { width: 2.2em; color: #555; text-align: right; padding-right: 8pt; }
+  .printsheet .boxcell { text-align: center; }
+  .printsheet .tick { display: inline-block; width: 12pt; height: 12pt; border: 1.25pt solid black; border-radius: 2pt; }
+  .printsheet .blankrow td { height: 20pt; }
+  .printsheet footer { margin-top: 10pt; font-size: 9pt; color: #555; }
+}

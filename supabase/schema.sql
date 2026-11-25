@@ -7,7 +7,8 @@
 --   Church admin   : runs one church: its look, its people and roles, plus everything a coordinator does.
 --   Coordinator    : sees that church's volunteers, events, follow-ups and lists; records attendance.
 --   Volunteer      : their own card at that church and the events they're assigned to, and can say
---                    "I can't make it" to an upcoming one (see cant_make_it below).
+--                    "I can't make it" to an upcoming one (see cant_make_it below). They can also sign
+--                    themselves up for events a coordinator opened for sign-up (see sign_up_for_event).
 -- Every row of church data carries church_id, and every rule below checks the person's role in that church.
 
 create extension if not exists pgcrypto;
@@ -154,6 +155,12 @@ alter table public.assignments add constraint assignments_status_check
   check (status in ('assigned', 'attended', 'missed', 'cant_make_it'));
 -- The follow-up made when a volunteer says they can't make it points at that assignment.
 alter table public.followups add column if not exists assignment_id uuid references public.assignments (id) on delete set null;
+
+-- Added for open sign-up. A coordinator ticks "Open for sign-up" on an event, and volunteers who checked
+-- its area (or anyone, for a general event) can claim a spot on their own page until it's full.
+alter table public.events add column if not exists open_signup boolean not null default false;
+-- True when the volunteer signed themselves up, so coordinators can tell on the roster.
+alter table public.assignments add column if not exists self_signup boolean not null default false;
 
 -- ---------------------------------------------------------------------------
 -- Role helpers (security definer so the rules can read memberships without recursion)
@@ -454,13 +461,19 @@ create or replace function public.can_make_it_after_all(assignment uuid) returns
 language plpgsql security definer set search_path = public as $$
 declare a record; ev record;
 begin
+  -- lock the event first, then the assignment (the same order as sign_up_for_event, so the two can't deadlock)
+  select * into ev from public.events where id = (select event_id from public.assignments where id = assignment) for update;
   select * into a from public.assignments where id = assignment for update;
   if a.id is null or a.volunteer_id is distinct from public.my_volunteer_id(a.church_id) then
     raise exception 'That event isn''t on your schedule';
   end if;
   if a.status <> 'cant_make_it' then return; end if;
-  select * into ev from public.events where id = a.event_id;
   if public.event_is_over(ev.date) then raise exception 'This event has already happened'; end if;
+  -- on an event open for sign-up, someone else may have taken the freed spot
+  if ev.open_signup and ev.needed is not null and (select count(*) from public.assignments
+       where event_id = ev.id and status <> 'cant_make_it') >= ev.needed then
+    raise exception 'Sorry, someone else has signed up for your spot and this event is full now';
+  end if;
   -- the assignments_cant_cleared trigger clears the note and closes the follow-up
   update public.assignments set status = 'assigned' where id = a.id;
 end;
@@ -490,6 +503,54 @@ drop trigger if exists assignments_cant_cleared on public.assignments;
 create trigger assignments_cant_cleared before update on public.assignments
   for each row execute function public.clear_cant_make_it();
 
+-- Volunteer: the events open for sign-up that they could join (their church, upcoming, an area they
+-- checked or a general event, not already on their schedule), with how many spots are taken.
+-- Full events are listed too, so volunteers can see them; sign_up_for_event refuses them.
+create or replace function public.open_events(c uuid)
+returns table (id uuid, name text, date date, "time" text, place text, area text, needed int, notes text,
+               open_signup boolean, taken int)
+language sql stable security definer set search_path = public as $$
+  select e.id, e.name, e.date, e.time, e.place, e.area, e.needed, e.notes, e.open_signup,
+         (select count(*)::int from public.assignments t where t.event_id = e.id and t.status <> 'cant_make_it')
+    from public.events e
+    join public.volunteers v on v.church_id = e.church_id and v.user_id = auth.uid()
+   where e.church_id = c and public.church_role(c) is not null and e.open_signup and not public.event_is_over(e.date)
+     and (e.area is null or e.area = any (v.ministries))
+     and not exists (select 1 from public.assignments a where a.event_id = e.id and a.volunteer_id = v.id)
+   order by e.date nulls last, e.name
+$$;
+
+-- Volunteer: claim a spot on an event that's open for sign-up. The event row is locked so two people
+-- can't take the last spot at the same moment.
+create or replace function public.sign_up_for_event(event uuid) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare ev record; me uuid; a record; taken int; new_id uuid;
+begin
+  select * into ev from public.events where id = event for update;
+  if ev.id is null or not public.is_member(ev.church_id) then raise exception 'That event could not be found'; end if;
+  me := public.my_volunteer_id(ev.church_id);
+  if me is null then raise exception 'Please fill in your volunteer card first'; end if;
+  if not ev.open_signup then raise exception 'This event isn''t open for sign-up'; end if;
+  if public.event_is_over(ev.date) then raise exception 'This event has already happened'; end if;
+  if ev.area is not null and not exists (select 1 from public.volunteers where id = me and ev.area = any (ministries)) then
+    raise exception 'This event is for people who checked %. Add it to your card to sign up.',
+      coalesce((select label from public.ministries where church_id = ev.church_id and id = ev.area), ev.area);
+  end if;
+  select * into a from public.assignments where event_id = ev.id and volunteer_id = me for update;
+  if a.id is not null and a.status <> 'cant_make_it' then raise exception 'You''re already signed up for this event'; end if;
+  select count(*) into taken from public.assignments where event_id = ev.id and status <> 'cant_make_it';
+  if ev.needed is not null and taken >= ev.needed then raise exception 'Sorry, this event is full now'; end if;
+  if a.id is not null then
+    -- they had said they can't make it: put them back (the assignments_cant_cleared trigger closes the follow-up)
+    update public.assignments set status = 'assigned' where id = a.id;
+    return a.id;
+  end if;
+  insert into public.assignments (church_id, event_id, volunteer_id, self_signup)
+  values (ev.church_id, ev.id, me, true) returning id into new_id;
+  return new_id;
+end;
+$$;
+
 -- Someone else's role at a church (for the functions above; not callable by the app).
 create or replace function public.church_role_of(u uuid, c uuid) returns text
 language sql stable security definer set search_path = public as $$
@@ -516,6 +577,10 @@ revoke execute on function public.cant_make_it(uuid, text) from public, anon;
 revoke execute on function public.can_make_it_after_all(uuid) from public, anon;
 grant execute on function public.cant_make_it(uuid, text) to authenticated;
 grant execute on function public.can_make_it_after_all(uuid) to authenticated;
+revoke execute on function public.open_events(uuid) from public, anon;
+revoke execute on function public.sign_up_for_event(uuid) from public, anon;
+grant execute on function public.open_events(uuid) to authenticated;
+grant execute on function public.sign_up_for_event(uuid) to authenticated;
 grant execute on function public.sync_me() to authenticated;
 grant execute on function public.join_church(text) to authenticated;
 grant execute on function public.create_church(text, text, text) to authenticated;

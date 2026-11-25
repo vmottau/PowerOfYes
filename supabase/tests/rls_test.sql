@@ -156,6 +156,118 @@ select pg_temp.expect((select count(*) from followups where assignment_id is not
 update assignments set status = 'assigned' where status = 'cant_make_it';
 select pg_temp.expect((select cant_reason = '' and cant_at is null from assignments), 'putting them back clears the note');
 select pg_temp.expect((select count(*) from followups where assignment_id is not null and not done) = 0, 'putting them back closes the follow-up');
+-- Open sign-up: volunteers sign themselves up for events a coordinator opened, until they're full
+insert into events (church_id, name, date, area, needed, open_signup)
+  select id, 'Open fish fry', '2030-02-01', 'pierogies', 1, true from churches where slug = 'st-one';
+insert into events (church_id, name, date, area, open_signup)
+  select id, 'Closed event', '2030-02-02', null, false from churches where slug = 'st-one';
+insert into events (church_id, name, date, area, open_signup)
+  select id, 'Usher open', '2030-02-03', 'greeter-usher', true from churches where slug = 'st-one';
+insert into events (church_id, name, date, open_signup)
+  select id, 'Old open event', current_date - 3, true from churches where slug = 'st-one';
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a2');
+insert into events (church_id, name, date, open_signup)
+  select id, 'Church two open', '2030-02-04', true from churches where slug = 'st-two';
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
+select pg_temp.expect((select string_agg(name, ',') from open_events((select id from churches where slug = 'st-one'))) = 'Open fish fry',
+  'a volunteer sees only open, upcoming events in an area they checked');
+select pg_temp.expect((select taken from open_events((select id from churches where slug = 'st-one'))) = 0, 'open events show how many spots are taken');
+select pg_temp.expect((select count(*) from events where name = 'Open fish fry') = 0, 'a volunteer cannot read an open event''s row before signing up');
+select pg_temp.expect((select count(*) from open_events((select id from church_by_slug('st-two')))) = 0, 'a volunteer sees no open events at a church they did not join');
+select sign_up_for_event((select id from open_events((select id from churches where slug = 'st-one'))));
+select pg_temp.expect((select self_signup and status = 'assigned' from assignments a join events e on e.id = a.event_id where e.name = 'Open fish fry'), 'a volunteer can sign up for an open event');
+select pg_temp.expect((select count(*) from events where name = 'Open fish fry') = 1, 'the event is on their schedule once they sign up');
+select pg_temp.expect((select count(*) from open_events((select id from churches where slug = 'st-one'))) = 0, 'an event they signed up for leaves their open list');
+reset role;
+do $$
+declare
+  fish uuid := (select id from events where name = 'Open fish fry');
+  closed uuid := (select id from events where name = 'Closed event');
+  usher uuid := (select id from events where name = 'Usher open');
+  old uuid := (select id from events where name = 'Old open event');
+  other uuid := (select id from events where name = 'Church two open');
+begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b2', true);
+  begin perform sign_up_for_event(fish); raise exception 'FAIL: signed up twice';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin perform sign_up_for_event(closed); raise exception 'FAIL: signed up for an event not open for sign-up';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin perform sign_up_for_event(usher); raise exception 'FAIL: signed up for an area they did not check';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin perform sign_up_for_event(old); raise exception 'FAIL: signed up for a past event';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin perform sign_up_for_event(other); raise exception 'FAIL: signed up at another church';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin
+    insert into assignments (church_id, event_id, volunteer_id)
+      values ((select id from church_by_slug('st-one')), usher, public.my_volunteer_id((select id from church_by_slug('st-one'))));
+    raise exception 'FAIL: volunteer wrote an assignment directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+set role authenticated;
+-- "Can't make it" reopens the spot; someone else takes it; then the first person can't come back
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
+select cant_make_it((select a.id from assignments a join events e on e.id = a.event_id where e.name = 'Open fish fry'), 'Sick');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+select join_church('st-one');
+insert into volunteers (church_id, name, ministries, user_id)
+  select id, 'Vol One at St One', '{pierogies}', auth.uid() from churches where slug = 'st-one';
+select pg_temp.expect((select taken from open_events((select id from churches where slug = 'st-one')) where name = 'Open fish fry') = 0,
+  'a spot freed by "can''t make it" is open again');
+select sign_up_for_event((select id from open_events((select id from churches where slug = 'st-one')) where name = 'Open fish fry'));
+select pg_temp.expect((select count(*) from open_events((select id from churches where slug = 'st-one')) where name = 'Open fish fry') = 0, 'the second volunteer got the spot');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
+do $$ begin
+  begin perform can_make_it_after_all((select a.id from assignments a join events e on e.id = a.event_id where e.name = 'Open fish fry'));
+    raise exception 'FAIL: came back into a full open event';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+-- someone removed from the church no longer sees its open events, even though their card stays
+reset role;
+update events set needed = 5 where name = 'Open fish fry';
+delete from memberships where user_id = '00000000-0000-0000-0000-0000000000b1' and church_id = (select id from churches where slug = 'st-one');
+update assignments set status = 'cant_make_it' where volunteer_id = (select id from volunteers where name = 'Vol One at St One');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+select pg_temp.expect((select count(*) from open_events((select id from church_by_slug('st-one')))) = 0, 'a removed member sees no open events');
+do $$ begin
+  begin perform sign_up_for_event((select id from events where name = 'Open fish fry'));
+    raise exception 'FAIL: a removed member signed up';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+reset role;
+insert into memberships (church_id, user_id) select id, '00000000-0000-0000-0000-0000000000b1' from churches where slug = 'st-one';
+update assignments set status = 'assigned' where volunteer_id = (select id from volunteers where name = 'Vol One at St One');
+update events set needed = 1 where name = 'Open fish fry';
+set role authenticated;
+-- the coordinator sees who signed themselves up
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1');
+select pg_temp.expect((select count(*) from assignments a join events e on e.id = a.event_id where e.name = 'Open fish fry' and a.self_signup) = 2, 'coordinator sees who signed themselves up');
+-- a third volunteer finds it full
+reset role;
+update events set needed = 1, area = null where name = 'Open fish fry';
+insert into auth.users values ('00000000-0000-0000-0000-0000000000b3', 'vol3@example.org');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b3');
+select join_church('st-one');
+insert into volunteers (church_id, name, user_id) select id, 'Vol Three', auth.uid() from churches where slug = 'st-one';
+select pg_temp.expect((select taken from open_events((select id from churches where slug = 'st-one')) where name = 'Open fish fry') = 1, 'a full event shows as taken');
+do $$ begin
+  begin perform sign_up_for_event((select id from open_events((select id from church_by_slug('st-one'))) where name = 'Open fish fry'));
+    raise exception 'FAIL: signed up for a full event';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+-- tidy up so the checks below see the same data as before
+reset role;
+delete from followups where note like '%Open fish fry%';
+delete from events where name in ('Open fish fry', 'Closed event', 'Usher open', 'Old open event', 'Church two open');
+delete from volunteers where name in ('Vol One at St One', 'Vol Three');
+delete from memberships where church_id = (select id from churches where slug = 'st-one')
+  and user_id in ('00000000-0000-0000-0000-0000000000b1', '00000000-0000-0000-0000-0000000000b3');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1');
+
 -- an event that is over everywhere can't be changed
 reset role;
 update events set date = current_date - 2;

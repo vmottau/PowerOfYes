@@ -68,6 +68,7 @@ function EventRow({ ev, asg }: { ev: ChurchEvent; asg: Assignment[] }) {
       <div className="minw0">
         <h3>{ev.name}</h3>
         <p>{[ev.time, ev.place, area?.label].filter(Boolean).join(" · ") || " "}</p>
+        {ev.open_signup && !past && <span className="pill opensu">Open for sign-up</span>}
       </div>
       <div className="counts">
         {past ? <><b>{att}/{rs.length}</b> attended</> : <><b>{ev.needed ? `${rs.length}/${ev.needed}` : rs.length}</b> assigned{cant > 0 && <span className="cantflag">{cant} can't make it</span>}</>}

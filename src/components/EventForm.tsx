@@ -15,8 +15,8 @@ export function EventForm({ event, defaultArea, onSaved, onCancel, onDeleted }: 
   const api = useApi();
   const { ministries } = useAppState();
   const [f, setF] = useState<EventInput>(event
-    ? { name: event.name, date: event.date, time: event.time, place: event.place, area: event.area, needed: event.needed, notes: event.notes }
-    : { name: "", date: null, time: "", place: "", area: defaultArea ?? null, needed: null, notes: "" });
+    ? { name: event.name, date: event.date, time: event.time, place: event.place, area: event.area, needed: event.needed, notes: event.notes, open_signup: !!event.open_signup }
+    : { name: "", date: null, time: "", place: "", area: defaultArea ?? null, needed: null, notes: "", open_signup: false });
   const [warn, setWarn] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -54,6 +54,15 @@ export function EventForm({ event, defaultArea, onSaved, onCancel, onDeleted }: 
       <div className="field"><label htmlFor="ev-needed">Volunteers needed</label>
         <input id="ev-needed" type="number" min={0} inputMode="numeric" value={f.needed ?? ""} placeholder="Optional"
           onChange={(e) => { const n = parseInt(e.target.value, 10); set({ needed: Number.isFinite(n) && n > 0 ? n : null }); }} /></div>
+      <div className="field signupopt">
+        <label className="inline" htmlFor="ev-open">
+          <input id="ev-open" type="checkbox" checked={f.open_signup} onChange={(e) => set({ open_signup: e.target.checked })} />
+          Open for sign-up
+        </label>
+        <p className="hint">{f.open_signup
+          ? `${f.area ? `Volunteers who checked ${ministries.find((m) => m.id === f.area)?.label ?? "this area"}` : "Every volunteer"} will see this on their page and can sign themselves up${f.needed ? ` until all ${f.needed} spots are taken` : ". Set “Volunteers needed” to cap the number of spots"}.`
+          : "Tick this to let volunteers sign themselves up on their page, instead of assigning everyone yourself."}</p>
+      </div>
       <div className="field"><label htmlFor="ev-notes">Notes for volunteers</label>
         <textarea id="ev-notes" rows={2} value={f.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="What to bring, who's in charge. Assigned volunteers see this." /></div>
       {warn && <p className="warn">{warn}</p>}

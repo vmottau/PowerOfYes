@@ -130,6 +130,16 @@ await signIn("newbie@example.org");
 await p.waitForSelector("text=Example: Fall pierogi batch");
 ok(true, "volunteer sees the event they were assigned to");
 
+ok((await p.evaluate(() => location.hash)) === "#/me", "volunteer is on their own page");
+await signOut();
+// sign in again on the same page, without reloading, like someone sharing a computer
+await p.fill("#signin-email", "coordinator@example.org"); await p.click("button[type=submit]");
+await p.waitForSelector("main.content h1");
+ok(await p.isVisible("main.content h1:has-text('Home')"), "a coordinator who signs in after a volunteer lands on Home, not the volunteer's page");
+await signOut();
+await signIn("newbie@example.org");
+await p.waitForSelector("text=Example: Fall pierogi batch");
+
 // 4b. "Can't make it": the volunteer backs out ahead of time, and the coordinator finds out
 const myEv = ".myev:has-text('Fall pierogi batch')";
 await p.click(`${myEv} >> button:has-text("Can't make it")`);

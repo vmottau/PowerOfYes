@@ -19,8 +19,8 @@ These close the biggest gaps between "list of names" and "people actually show u
 | 2 | **Email reminders before an event** | No-shows are the most common volunteer problem. Send each assigned volunteer a reminder 2 days before (time, place, notes), using the email sender already needed for sign-in (Brevo/Resend). Runs as a Supabase scheduled function. | High | M |
 | 3 | **"Can't make it" button for volunteers** | Volunteers can see where they're scheduled but can't back out, so coordinators find out on the day. A button on *My page* that frees the spot and alerts the coordinator. Pairs with #1 and #2. | High | S |
 | 4 | **Message everyone in a ministry or on an event** | Coordinators need to reach "all lectors" or "everyone on Saturday's fish fry". Start simple: a button that copies all the emails (or opens a pre-filled email) for the filtered list. No outside service needed. | High | S |
-| 5 | **Export to spreadsheet (CSV)** | Parish offices live in Excel. Download the directory (filtered by ministry) and event rosters. Also a safety net: the parish always has its own copy of the data. | Medium | S |
-| 6 | **Printable rosters and sign-in sheets** | Many events still run on paper on the day. A print-friendly roster with names, phones and a check-off column. | Medium | S |
+| 5 | **Export to spreadsheet (CSV)** | **Built.** Parish offices live in Excel. Download the directory (filtered by ministry) and event rosters. Also a safety net: the parish always has its own copy of the data. | Medium | S |
+| 6 | **Printable rosters and sign-in sheets** | **Built.** Many events still run on paper on the day. A print-friendly roster with names, phones and a check-off column. | Medium | S |
 
 ## Tier 2: Soon
 Make it easier to run month after month.
@@ -53,7 +53,7 @@ Good ideas once the basics are humming.
 | 24 | **Platform owner overview** | For you as owner: how many volunteers and events each church has, and which churches are active. | Low | S |
 
 ## Housekeeping (not features, but worth doing)
-- **Backups.** Supabase's free plan doesn't keep daily backups you can restore. A monthly CSV export (#5) or a scheduled database dump keeps the parish safe.
+- **Backups.** Supabase's free plan doesn't keep daily backups you can restore. A monthly download from **Manage → Backup** (built with #5) keeps the parish safe; a scheduled database dump would make it automatic.
 - **Real email sender before launch.** Already in the README; it's also the foundation for #2 and #20.
 - **Privacy note.** A short page saying what's stored and who can see it. Parishioners will ask.
 - **Remove a volunteer's account on request.** A self-service "delete my card" button.

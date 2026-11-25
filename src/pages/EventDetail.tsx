@@ -4,7 +4,9 @@ import { useApi, type Assignment, type AttendanceStatus } from "../api";
 import { useAppState } from "../App";
 import { Modal } from "../components/Modal";
 import { EventForm } from "../components/EventForm";
-import { longDate, plural } from "../lib/format";
+import { PrintSheet } from "../components/PrintSheet";
+import { downloadCSV, fileSlug } from "../lib/export";
+import { fmtPhone, longDate, plural } from "../lib/format";
 import { historyByVolunteer } from "../lib/history";
 import { copyText, errText, useLoad, useToast } from "../lib/hooks";
 
@@ -54,6 +56,16 @@ export function EventDetail() {
     try { await fn(); if (msg) toast(msg); await data.reload(); } catch (e) { toast(errText(e)); }
   }
   const setStatus = (a: Assignment, s: AttendanceStatus) => a.status !== s && act(() => api.setAttendance(a.id, s));
+  const when = [longDate(ev.date), ev.time].filter(Boolean).join(", ");
+  const walkIns = Math.min(15, Math.max(3, (ev.needed ?? 0) - roster.length));
+
+  function downloadRoster() {
+    const status = (s: AttendanceStatus) => ATT.find((x) => x.id === s)!.label;
+    downloadCSV(`${fileSlug(ev!.name)}${ev!.date ? "-" + ev!.date : ""}-roster.csv`,
+      ["Event", "Date", "Time", "Place", "Name", "Phone", "Email", "Attendance"],
+      roster.map(({ a, v }) => [ev!.name, ev!.date ?? "", ev!.time, ev!.place, v.name, fmtPhone(v.phone), v.email, status(a.status)]));
+    toast(`Downloaded the roster (${plural(roster.length, "person", "people")})`);
+  }
 
   return (
     <div className="detail">
@@ -76,6 +88,8 @@ export function EventDetail() {
         <div className="evhead tight">
           <h2>Roster</h2>
           <div className="actions">
+            <button className="btn" type="button" onClick={() => window.print()}>Print sign-in sheet</button>
+            {roster.length > 0 && <button className="btn" type="button" onClick={downloadRoster}>Download roster</button>}
             {rs.some((a) => a.status === "assigned") && (
               <button className="btn" type="button" onClick={() => act(async () => {
                 for (const a of rs.filter((x) => x.status === "assigned")) await api.setAttendance(a.id, "attended");
@@ -141,6 +155,15 @@ export function EventDetail() {
           </div>
         </div>
       </section>
+
+      <PrintSheet
+        title={ev.name}
+        meta={[when, ev.place, area?.label ?? "", ev.needed ? `${ev.needed} needed` : ""]}
+        columns={[{ label: "Name", width: "30%" }, { label: "Phone", width: "17%" }, { label: "Email" }, { label: "Here", kind: "box", width: "8%" }]}
+        rows={roster.map(({ v }) => [v.name, fmtPhone(v.phone), v.email])}
+        blankRows={walkIns}
+        footer={`${plural(roster.length, "person", "people")} on the roster. Add walk-ins on the blank lines.`}
+      />
 
       <Modal open={editing} onClose={() => setEditing(false)} labelledBy="ev-dlg-title">
         {editing && <EventForm event={ev} onCancel={() => setEditing(false)}

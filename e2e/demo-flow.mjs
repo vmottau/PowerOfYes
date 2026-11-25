@@ -115,6 +115,9 @@ await p.fill("#new-area-event", "Fish Fry"); await p.click("form.newarea:has(#ne
 await p.waitForSelector(".arearow:has-text('Fish Fry')");
 ok(true, "coordinator can add an area of interest");
 ok(!(await p.isVisible("button[role=tab]:has-text('Appearance')")), "coordinator cannot change appearance");
+await p.click("button[role=tab]:has-text('Emails')");
+await p.waitForSelector("#em-days:has-text('2 days before')");
+ok(await p.isVisible("text=a church admin can change this"), "coordinator sees when reminder emails go out, but can't change it");
 await p.click("button[role=tab]:has-text('Backup')");
 {
   const { name, body } = await download(() => p.click("#backup-dl"));
@@ -227,6 +230,14 @@ await p.selectOption("select[aria-label='Role for newbie@example.org']", "coordi
 await p.waitForSelector("text=Role updated");
 ok(true, "admin can invite by email and change roles");
 await shot("4a-people");
+await p.click("button[role=tab]:has-text('Emails')");
+await p.waitForSelector("text=Demo mode doesn't send any email");
+await p.selectOption("#em-days", "7");
+await p.waitForSelector("text=Reminders go out 1 week before");
+await p.click("button[role=tab]:has-text('People')"); await p.click("button[role=tab]:has-text('Emails')");
+await p.waitForSelector("#em-days:not([disabled])");
+ok((await p.inputValue("#em-days")) === "7", "admin can change when reminder emails go out");
+await shot("8b-emails");
 await p.click("button[role=tab]:has-text('Appearance')");
 await p.fill("#br-org", "St. Example Parish & School");
 await p.click("button.preset:has-text('Plum')");

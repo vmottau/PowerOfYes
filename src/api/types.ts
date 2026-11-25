@@ -97,6 +97,19 @@ export interface MyAssignment {
   event: ChurchEvent;
 }
 
+/** An email the app sent or is about to send (Manage → Emails). */
+export interface SentEmail {
+  id: string;
+  kind: "reminder" | "cant_make_it";
+  to_email: string;
+  subject: string;
+  /** waiting and sending: not out yet. failed: gave up after several tries (see error). cancelled: no longer needed. */
+  status: "waiting" | "sending" | "sent" | "failed" | "cancelled";
+  error: string;
+  created_at: string;
+  sent_at: string | null;
+}
+
 /** The church's "skin". Church admins edit it under Manage → Appearance. */
 export interface Branding {
   org_name: string;
@@ -189,6 +202,13 @@ export interface Api {
   cancelInvite(id: string): Promise<void>;
   setRole(userId: string, role: Role): Promise<void>;
   removeMember(userId: string): Promise<void>;
+
+  // Emails (coordinator and admin; only an admin changes the setting)
+  /** How many days before an event volunteers get a reminder email. 0 = no reminders. */
+  getReminderDays(): Promise<number>;
+  setReminderDays(days: number): Promise<void>;
+  /** The church's most recent emails, newest first. */
+  listEmails(): Promise<SentEmail[]>;
 
   // Platform owner
   listAllChurches(): Promise<Church[]>;

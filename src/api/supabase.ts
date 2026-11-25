@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   Api, Assignment, AttendanceStatus, Branding, Church, ChurchEvent, EventInput, Followup, FollowupInput, Invite,
-  Membership, Ministry, MyAssignment, Profile, Role, Session, Volunteer, VolunteerInput,
+  Membership, Ministry, MyAssignment, Profile, Role, SentEmail, Session, Volunteer, VolunteerInput,
 } from "./types";
 import { pickCurrentChurch, rememberChurch } from "./churchChoice";
 
@@ -251,6 +251,20 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
 
     async removeMember(userId: string) {
       check(await sb.from("memberships").delete().eq("church_id", cid()).eq("user_id", userId));
+    },
+
+    async getReminderDays() {
+      const row = check(await sb.from("churches").select("reminder_days").eq("id", cid()).single()) as { reminder_days: number };
+      return row.reminder_days;
+    },
+
+    async setReminderDays(days) {
+      check(await sb.from("churches").update({ reminder_days: days }).eq("id", cid()));
+    },
+
+    async listEmails() {
+      return check(await sb.from("email_outbox").select("id, kind, to_email, subject, status, error, created_at, sent_at")
+        .eq("church_id", cid()).order("created_at", { ascending: false }).limit(100)) as SentEmail[];
     },
 
     async listAllChurches() {

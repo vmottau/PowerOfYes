@@ -5,6 +5,7 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 - **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled. If they can't make an event, they press **Can't make it** on *My card*: their spot opens up, and coordinators see it on their home page and get a follow-up to find someone else.
 - **Coordinators** see every volunteer by area of interest, type in paper cards, create events and projects, assign people, and mark who showed up.
 - **Coordinators** can download any filtered volunteer list or event roster as a spreadsheet, print a sign-in sheet for an event or a list for a ministry, and download a full backup under **Manage → Backup**.
+- **Volunteers get a reminder email** a couple of days before each event they're on, and **coordinators get an email** when someone presses **Can't make it**. Admins choose how many days ahead under **Manage → Emails**, where staff can also see every email that went out.
 - **Coordinators** also keep a follow-up to-do list ("Call Ann about the pierogi batch, due Friday") and maintain the list of ministries and events volunteers can pick from.
 - **Church admins** do everything coordinators do, invite coordinators by email, and set the church's look.
 - **The platform owner** adds churches to the site and names each church's first admin.
@@ -28,6 +29,7 @@ Until Supabase is connected, the site runs in **demo mode**: sample data that st
 | --- | --- |
 | `src/` | The website (React + TypeScript, built with Vite) |
 | `supabase/schema.sql` | Database tables, the three roles, and the rules for who can see and change what |
+| `supabase/email-setup.sql` | Turns on email sending (reminders and "Can't make it" alerts) |
 | `supabase/tests/` | Automated checks of those rules |
 | `e2e/demo-flow.mjs` | Automated walkthrough of every role in demo mode |
 | `.github/workflows/` | Publishes the site to GitHub Pages and runs the checks on every change |
@@ -63,6 +65,25 @@ To add another church later, repeat step 2.
 ### 4. Before inviting the whole parish: email sending
 Supabase's built-in email sender only allows a few sign-in emails per hour. That's fine for testing. Before announcing the site, connect a real email sender under **Authentication → Emails → SMTP Settings** (the parish's email provider, or a free service such as Brevo or Resend). You can also edit the sign-in email's wording on the same page.
 
+If you set up Resend for reminders (step 5), you can use the same account here: **Host** `smtp.resend.com`, **Port** `465`, **Username** `resend`, **Password** your Resend API key, and a **Sender email** at your verified domain.
+
+### 5. Email reminders and "Can't make it" alerts
+The site itself can't send email (GitHub Pages only shows web pages), so the database does it: every morning it writes the reminders, and every minute it hands whatever is waiting to **Resend**, a free email-sending service. You only set this up once.
+
+1. **Run the newest `schema.sql`** again (SQL Editor, as in step 1). It adds the email tables.
+2. **Make a free Resend account** at [resend.com](https://resend.com).
+3. **Add your church's web domain** in Resend under **Domains → Add domain** (for example `stmarys.org`). Resend shows a few lines (DNS records) that whoever looks after the church's website or domain needs to add. Once Resend says **Verified**, emails can come from any address at that domain, like `volunteers@stmarys.org`. Without a verified domain, Resend only delivers to your own email address, which is fine for a first test.
+4. **Make a key** in Resend under **API Keys → Create API key** (Sending access is enough). Copy it; it starts with `re_`.
+5. **Turn sending on** in Supabase: open **SQL Editor → New query** and paste everything from [`supabase/email-setup.sql`](supabase/email-setup.sql). At the very top, replace `PASTE-YOUR-RESEND-KEY-HERE` with your key and `volunteers@your-church.org` with the address emails should come from. Click **Run**. The key is stored in Supabase's encrypted Vault.
+6. **Check it works**: under **Manage → Emails** you can see each email and whether it was sent. To try it right away, have a volunteer press **Can't make it** (the coordinator's email goes out within a minute), or run `select public.queue_reminders();` in the SQL Editor to send today's reminders now.
+
+Good to know:
+- Reminders go out at **9 am Eastern** in winter and 10 am in summer (an hour earlier in Central time). To change the time, edit the `cron.schedule('volunteer-reminders', ...)` line at the bottom of `email-setup.sql` and run it again (times there are in UTC).
+- Volunteers whose card has no email address don't get reminders.
+- Replies to a reminder go to the coordinator who created the event. Replies to a "Can't make it" email go to the volunteer.
+- Resend's free plan sends up to **100 emails a day** (3,000 a month). Anything over the daily limit waits and goes out the next day.
+- To stop reminders for a church, set them to **Off** under **Manage → Emails**. To stop every email from the site, run `select cron.unschedule('volunteer-emails-send');` in the SQL Editor (running `email-setup.sql` again turns it back on).
+
 ## Paper cards and online sign-ups
 Staff can keep typing in paper cards. When someone with a paper card later signs in and joins that church using the **same email address**, the app links them to their existing card automatically, along with their event history.
 
@@ -81,6 +102,11 @@ Checks (these also run automatically on GitHub):
 ```bash
 # Database access rules, against a local Postgres 16
 psql -f supabase/tests/auth_stub.sql && psql -f supabase/schema.sql && psql -f supabase/tests/rls_test.sql
+# Email reminders and alerts (with stand-ins for Supabase's pg_net, Vault and pg_cron)
+psql -f supabase/tests/email_stub.sql
+sed -e '/create extension/d' -e 's/PASTE-YOUR-RESEND-KEY-HERE/re_test_key/' -e 's/volunteers@your-church.org/volunteers@example.org/' \
+    -e "s#https://vmottau.github.io/PowerOfYes/'#https://example.org/app/'#" supabase/email-setup.sql | psql
+psql -f supabase/tests/email_test.sql
 
 # End-to-end walkthrough of every role in demo mode
 VITE_DEMO=1 npm run build && npx vite preview --port 4173 &
@@ -90,6 +116,6 @@ npm run test:e2e
 ## Ideas for later
 See [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) for the full prioritized list. Top picks:
 - Volunteers sign themselves up for open events
-- Email or text reminders before an event
+- Text-message reminders before an event
 - Attendance reports by ministry and season
 - Hours served, for youth service requirements

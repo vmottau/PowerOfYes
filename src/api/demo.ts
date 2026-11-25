@@ -1,5 +1,5 @@
 import type {
-  Api, Assignment, Branding, Church, ChurchEvent, Followup, Invite, Ministry, Role, Session, Volunteer, VolunteerInput,
+  Api, Assignment, Branding, Church, ChurchEvent, Followup, Invite, Ministry, Role, SentEmail, Session, Volunteer, VolunteerInput,
 } from "./types";
 import { DEFAULT_MINISTRIES } from "../lib/ministries";
 import { DEFAULT_BRANDING } from "../lib/brandingDefaults";
@@ -27,6 +27,8 @@ interface Store {
   events: Row<ChurchEvent>[];
   assignments: Row<Assignment>[];
   followups: Row<Followup>[];
+  /** Days before an event that reminders go out, by church (missing = 2). */
+  reminderDays?: Record<string, number>;
   sessionUserId: string | null;
 }
 
@@ -310,6 +312,31 @@ export function createDemoApi(): Api {
       if (m.role === "admin" && s.memberships.filter((x) => x.church_id === churchId && x.role === "admin").length <= 1)
         throw new Error("A church must always have at least one admin.");
       s.memberships = s.memberships.filter((x) => x !== m); save();
+    },
+
+    async getReminderDays() { requireStaff(); return out(s.reminderDays?.[cid()] ?? 2); },
+    async setReminderDays(days) {
+      requireAdmin();
+      if (!Number.isInteger(days) || days < 0 || days > 14) throw new Error("Pick between 0 and 14 days.");
+      s.reminderDays = { ...s.reminderDays, [cid()]: days }; save();
+    },
+    // Demo mode sends nothing. This shows what the real site would send: today's reminders and "can't make it" alerts.
+    async listEmails() {
+      requireStaff();
+      const days = s.reminderDays?.[cid()] ?? 2;
+      const today = todayISO();
+      const until = new Date(today + "T12:00:00"); until.setDate(until.getDate() + days);
+      const last = until.toISOString().slice(0, 10);
+      const list: SentEmail[] = [];
+      for (const a of mine(s.assignments)) {
+        const ev = s.events.find((e) => e.id === a.event_id); const v = s.volunteers.find((x) => x.id === a.volunteer_id);
+        if (!ev || !v) continue;
+        if (a.status === "assigned" && days > 0 && v.email && ev.date && ev.date > today && ev.date <= last)
+          list.push({ id: `r-${a.id}`, kind: "reminder", to_email: v.email, subject: `Reminder: ${ev.name}`, status: "waiting", error: "", created_at: new Date().toISOString(), sent_at: null });
+        if (a.status === "cant_make_it")
+          list.push({ id: `c-${a.id}`, kind: "cant_make_it", to_email: "the event's coordinator", subject: `${v.name} can't make it to ${ev.name}`, status: "waiting", error: "", created_at: a.cant_at ?? new Date().toISOString(), sent_at: null });
+      }
+      return out(list.sort((x, y) => y.created_at.localeCompare(x.created_at)));
     },
 
     async listAllChurches() { if (!me()?.isPlatformAdmin) throw new Error("Only the platform owner can do that."); return out(s.churches); },

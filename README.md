@@ -4,6 +4,7 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 
 - **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled.
 - **Coordinators** see every volunteer by area of interest, type in paper cards, create events and projects, assign people, and mark who showed up.
+- **Coordinators** can download any filtered volunteer list or event roster as a spreadsheet, print a sign-in sheet for an event or a list for a ministry, and download a full backup under **Manage → Backup**.
 - **Coordinators** also keep a follow-up to-do list ("Call Ann about the pierogi batch, due Friday") and maintain the list of ministries and events volunteers can pick from.
 - **Church admins** do everything coordinators do, invite coordinators by email, and set the church's look.
 - **The platform owner** adds churches to the site and names each church's first admin.

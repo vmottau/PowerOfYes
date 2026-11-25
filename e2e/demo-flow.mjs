@@ -1,6 +1,7 @@
 // End-to-end walkthrough in demo mode, across two churches and every role.
 // Run: node e2e/demo-flow.mjs [baseUrl]   (set CHROMIUM_PATH to use a specific Chromium; SHOTS=dir to save screenshots)
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 const { chromium } = createRequire(import.meta.url)("playwright");
 
 const base = process.argv[2] ?? "http://localhost:4173/";
@@ -19,6 +20,11 @@ const signIn = async (email, slug) => {
   await p.waitForSelector("main.content h1");
 };
 const signOut = async () => { await p.locator("button[aria-label='Sign out']:visible").first().click(); await p.waitForSelector("#signin-email"); };
+const download = async (click) => {
+  const [d] = await Promise.all([p.waitForEvent("download"), click()]);
+  return { name: d.suggestedFilename(), body: await readFile(await d.path()) };
+};
+const printed = async (fn) => { await p.emulateMedia({ media: "print" }); try { return await fn(); } finally { await p.emulateMedia({ media: "screen" }); } };
 const go = async (label) => { await p.click(`a.navitem:has-text('${label}')`); };
 
 await p.goto(base); await p.evaluate(() => localStorage.clear());
@@ -53,6 +59,18 @@ ok(!(await p.isVisible("text=Grace Volunteer")), "coordinator does not see anoth
 await p.click("button.chip:has-text('Pierogies')");
 const n = await p.locator("article.vol").count();
 ok(n === 3, `pierogies filter shows 3 volunteers (got ${n})`);
+{
+  const { name, body } = await download(() => p.click("button:has-text('Download spreadsheet')"));
+  const lines = body.toString("utf8").replace(/^\uFEFF/, "").trim().split("\r\n");
+  ok(/^volunteers-pierogies-\d{4}-\d{2}-\d{2}\.csv$/.test(name), `directory spreadsheet is named for the filter (${name})`);
+  ok(lines.length === 4 && lines[0].startsWith("Name,Phone,Email,Interests"), `spreadsheet has a header and the 3 filtered volunteers (${lines.length} lines)`);
+  ok(lines.some((l) => l.startsWith("Newbie Volunteer,555-010-0199,newbie@example.org,")), "spreadsheet rows hold name, phone and email");
+  const sheet = await printed(async () => ({
+    title: await p.textContent(".printsheet h1"), rows: await p.locator(".printsheet tbody tr").count(), app: await p.isVisible("main.content"),
+  }));
+  ok(sheet.title === "Volunteers: Pierogies" && sheet.rows === 3 && !sheet.app, `printing the directory prints only the filtered list (${JSON.stringify(sheet)})`);
+  ok(!(await p.isVisible(".printsheet")), "the printed list is hidden on screen");
+}
 await p.check("input[aria-label='Select Newbie Volunteer']");
 const optVal = await p.locator("#assign-target option", { hasText: "Fall pierogi batch" }).getAttribute("value");
 await p.selectOption("#assign-target", optVal);
@@ -69,6 +87,19 @@ await p.waitForSelector(".rrow:has-text('Dan Placeholder')");
 await p.click(".rrow:has-text('Dan Placeholder') button.s-attended");
 await p.waitForSelector(".rrow:has-text('Dan Placeholder') button.s-attended[aria-pressed=true]");
 ok(true, "roster and attendance work");
+{
+  const { name, body } = await download(() => p.click("button:has-text('Download roster')"));
+  const text = body.toString("utf8");
+  ok(name.startsWith("example-fall-pierogi-batch") && name.endsWith("-roster.csv"), `event roster downloads as ${name}`);
+  ok(/Dan Placeholder,[^\r\n]*,Attended/.test(text) && text.includes("Newbie Volunteer"), "roster spreadsheet lists each person and their attendance");
+  const sheet = await printed(async () => ({
+    title: await p.textContent(".printsheet h1"), names: await p.locator(".printsheet tbody tr:not(.blankrow)").count(),
+    blank: await p.locator(".printsheet tbody tr.blankrow").count(), boxes: await p.locator(".printsheet .tick").count(), app: await p.isVisible("main.content"),
+  }));
+  ok(sheet.title === "Example: Fall pierogi batch" && sheet.names >= 2 && sheet.blank >= 3 && sheet.boxes === sheet.names + sheet.blank && !sheet.app,
+    `printed sign-in sheet has the roster, check-off boxes and walk-in lines (${JSON.stringify(sheet)})`);
+  await shot("3b-sign-in-sheet-print");
+}
 await shot("3-event");
 await go("Volunteers");
 await p.click("article.vol:has-text('Newbie Volunteer') >> text=Follow up");
@@ -84,6 +115,14 @@ await p.fill("#new-area-event", "Fish Fry"); await p.click("form.newarea:has(#ne
 await p.waitForSelector(".arearow:has-text('Fish Fry')");
 ok(true, "coordinator can add an area of interest");
 ok(!(await p.isVisible("button[role=tab]:has-text('Appearance')")), "coordinator cannot change appearance");
+await p.click("button[role=tab]:has-text('Backup')");
+{
+  const { name, body } = await download(() => p.click("#backup-dl"));
+  const s = body.toString("latin1");
+  ok(/^st-example-volunteers-backup-\d{4}-\d{2}-\d{2}\.zip$/.test(name) && s.startsWith("PK\x03\x04"), `backup downloads as a zip (${name})`);
+  ok(["volunteers.csv", "events.csv", "rosters.csv", "follow-ups.csv", "ministries.csv"].every((f) => s.includes(f)), "backup holds volunteers, events, rosters, follow-ups and ministries");
+  ok(s.includes("Newbie Volunteer") && !s.includes("Grace Volunteer"), "backup holds only this church's people");
+}
 await signOut();
 
 // 4. Volunteer sees their assignment

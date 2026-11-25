@@ -5,14 +5,16 @@ import { Icon } from "../components/Icon";
 import { Logo, useBranding } from "../lib/branding";
 import { churchLink } from "../api/churchChoice";
 import { copyText, errText, useLoad, useToast } from "../lib/hooks";
+import { downloadBlob, toCSV, zipFiles } from "../lib/export";
+import { fmtPhone, todayISO } from "../lib/format";
 
-type Tab = "areas" | "people" | "appearance";
+type Tab = "areas" | "people" | "backup" | "appearance";
 
 export function Manage() {
   const { session } = useAppState();
   const isAdmin = session.profile.role === "admin";
   const [tab, setTab] = useState<Tab>("areas");
-  const tabs: [Tab, string][] = [["areas", "Ministries & areas"], ["people", "People & roles"], ...(isAdmin ? [["appearance", "Appearance"] as [Tab, string]] : [])];
+  const tabs: [Tab, string][] = [["areas", "Ministries & areas"], ["people", "People & roles"], ["backup", "Backup"], ...(isAdmin ? [["appearance", "Appearance"] as [Tab, string]] : [])];
   return (
     <div>
       <PageHeader title="Manage" sub="The lists and settings behind the app." />
@@ -23,7 +25,92 @@ export function Manage() {
       </div>
       {tab === "areas" && <Areas />}
       {tab === "people" && <People canEdit={isAdmin} />}
+      {tab === "backup" && <Backup />}
       {tab === "appearance" && isAdmin && <Appearance />}
+    </div>
+  );
+}
+
+/* ---------------- Backup ---------------- */
+const BACKUP_FILES: [string, string][] = [
+  ["volunteers.csv", "Every volunteer card: contact details, interests, staff notes, and whether they've been contacted."],
+  ["events.csv", "Every event and project, past and upcoming."],
+  ["rosters.csv", "Who was assigned to each event and whether they came."],
+  ["follow-ups.csv", "The follow-up to-do list, open and done."],
+  ["ministries.csv", "The ministries and events volunteers can pick from."],
+];
+
+function Backup() {
+  const api = useApi();
+  const toast = useToast();
+  const { church } = useAppState();
+  const [busy, setBusy] = useState(false);
+  const [last, setLast] = useState<string | null>(null);
+
+  async function download() {
+    setBusy(true);
+    try {
+      const [vols, events, asg, fus, areas, people] = await Promise.all([
+        api.listVolunteers(), api.listEvents(), api.listAssignments(), api.listFollowups(), api.listMinistries(), api.listProfiles(),
+      ]);
+      const areaLabel = new Map(areas.map((m) => [m.id, m.label]));
+      const volById = new Map(vols.map((v) => [v.id, v]));
+      const evById = new Map(events.map((e) => [e.id, e]));
+      const emailOf = new Map(people.map((p) => [p.id, p.email]));
+      const byDate = (a: { date: string | null }, b: { date: string | null }) => (a.date ?? "9999").localeCompare(b.date ?? "9999");
+      const today = todayISO();
+      const files = [
+        { name: "volunteers.csv", text: toCSV(
+          ["ID", "Name", "Phone", "Email", "Interests", "Staff notes", "Contacted", "Has login", "Came from", "Added on"],
+          [...vols].sort((a, b) => a.name.localeCompare(b.name)).map((v) => [v.id, v.name, fmtPhone(v.phone), v.email,
+            v.ministries.map((id) => areaLabel.get(id) ?? id).join("; "), v.notes, v.contacted, !!v.user_id,
+            v.source === "card" ? "Paper card" : "Online", v.created_at.slice(0, 10)])) },
+        { name: "events.csv", text: toCSV(
+          ["ID", "Name", "Date", "Time", "Place", "Area", "Needed", "On roster", "Notes"],
+          [...events].sort(byDate).map((e) => [e.id, e.name, e.date ?? "", e.time, e.place, e.area ? areaLabel.get(e.area) ?? e.area : "",
+            e.needed ?? "", asg.filter((a) => a.event_id === e.id).length, e.notes])) },
+        { name: "rosters.csv", text: toCSV(
+          ["Event ID", "Event", "Date", "Volunteer ID", "Volunteer", "Attendance"],
+          asg.filter((a) => evById.has(a.event_id) && volById.has(a.volunteer_id))
+            .map((a) => ({ a, e: evById.get(a.event_id)!, v: volById.get(a.volunteer_id)! }))
+            .sort((x, y) => byDate(x.e, y.e) || x.e.name.localeCompare(y.e.name) || x.v.name.localeCompare(y.v.name))
+            .map(({ a, e, v }) => [e.id, e.name, e.date ?? "", v.id, v.name, a.status[0].toUpperCase() + a.status.slice(1)])) },
+        { name: "follow-ups.csv", text: toCSV(
+          ["Volunteer", "Note", "Due", "Assigned to", "Done", "Done on", "Added on"],
+          [...fus].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")).map((f) => [volById.get(f.volunteer_id)?.name ?? "", f.note,
+            f.due ?? "", f.assigned_to ? emailOf.get(f.assigned_to) ?? "" : "", f.done, f.done_at?.slice(0, 10) ?? "", f.created_at.slice(0, 10)])) },
+        { name: "ministries.csv", text: toCSV(
+          ["ID", "Name", "Kind", "Hint", "Shown to volunteers", "Volunteers interested"],
+          [...areas].sort((a, b) => a.sort - b.sort).map((m) => [m.id, m.label, m.kind === "event" ? "Event" : "Parish ministry", m.hint, m.active,
+            vols.filter((v) => v.ministries.includes(m.id)).length])) },
+        { name: "READ ME.txt", text: [
+          `Backup of ${church?.org_name ?? "the church"}'s volunteer data, made ${today}.`, "",
+          "Each .csv file opens in Excel, Google Sheets or Numbers.", "",
+          ...BACKUP_FILES.map(([n, d]) => `${n}: ${d}`), "",
+          "Keep this file somewhere safe: it holds volunteers' phone numbers and emails.", "",
+        ].join("\r\n") },
+      ];
+      downloadBlob(`${church?.slug ?? "church"}-volunteers-backup-${today}.zip`, zipFiles(files));
+      setLast(`${vols.length} volunteers, ${events.length} events, ${asg.length} roster entries and ${fus.length} follow-ups`);
+      toast("Backup downloaded");
+    } catch (e) { toast(errText(e)); }
+    setBusy(false);
+  }
+
+  return (
+    <div className="managegrid">
+      <section className="panel">
+        <div className="panelhead"><h2>Download a backup</h2></div>
+        <p className="muted small">One file with everything about {church?.org_name ?? "this church"}'s volunteers, as spreadsheets. Download one every month or so and keep it with the parish records, so the parish always has its own copy.</p>
+        <div><button className="btn primary" type="button" id="backup-dl" disabled={busy} onClick={() => void download()}>{busy ? "Preparing…" : "Download backup (.zip)"}</button></div>
+        {last && <p className="small" role="status">Downloaded {last}.</p>}
+        <p className="muted small">The backup holds phone numbers, emails and staff notes. Store it where only parish staff can open it.</p>
+      </section>
+      <section className="panel">
+        <div className="panelhead"><h2>What's inside</h2></div>
+        <ul className="rolehelp">{BACKUP_FILES.map(([n, d]) => <li key={n}><b>{n}:</b> {d}</li>)}</ul>
+        <p className="muted small">For a single list, use <b>Download spreadsheet</b> on the Volunteers page (it follows your filters) or <b>Download roster</b> on an event.</p>
+      </section>
     </div>
   );
 }

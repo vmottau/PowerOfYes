@@ -57,6 +57,8 @@ export interface ChurchEvent {
   area: string | null;
   needed: number | null;
   notes: string;
+  /** Volunteers who checked this event's area (or anyone, if it has none) can sign themselves up until it's full. */
+  open_signup: boolean;
 }
 
 export type EventInput = Omit<ChurchEvent, "id">;
@@ -70,6 +72,8 @@ export interface Assignment {
   cant_reason: string;
   /** When they said they can't make it, or null. */
   cant_at: string | null;
+  /** True when the volunteer signed themselves up for an open event. */
+  self_signup?: boolean;
 }
 
 export interface Followup {
@@ -92,9 +96,27 @@ export interface FollowupInput {
   assigned_to: string | null;
 }
 
+/** An event open for sign-up, as a volunteer sees it, with how many spots are taken. */
+export interface OpenEvent extends ChurchEvent {
+  taken: number;
+}
+
 export interface MyAssignment {
   assignment: Assignment;
   event: ChurchEvent;
+}
+
+/** An email the app sent or is about to send (Manage → Emails). */
+export interface SentEmail {
+  id: string;
+  kind: "reminder" | "cant_make_it";
+  to_email: string;
+  subject: string;
+  /** waiting and sending: not out yet. failed: gave up after several tries (see error). cancelled: no longer needed. */
+  status: "waiting" | "sending" | "sent" | "failed" | "cancelled";
+  error: string;
+  created_at: string;
+  sent_at: string | null;
 }
 
 /** The church's "skin". Church admins edit it under Manage → Appearance. */
@@ -159,6 +181,10 @@ export interface Api {
   cantMakeIt(assignmentId: string, reason: string): Promise<void>;
   /** Volunteer: takes back "I can't make it" (only while the event is still upcoming). */
   canMakeItAfterAll(assignmentId: string): Promise<void>;
+  /** Volunteer: upcoming events open for sign-up in areas they checked, that they're not already on. */
+  listOpenEvents(): Promise<OpenEvent[]>;
+  /** Volunteer: claims a spot on an event that's open for sign-up (refused once it's full). */
+  signUpForEvent(eventId: string): Promise<void>;
 
   // Coordinator and admin
   listVolunteers(): Promise<Volunteer[]>;
@@ -189,6 +215,13 @@ export interface Api {
   cancelInvite(id: string): Promise<void>;
   setRole(userId: string, role: Role): Promise<void>;
   removeMember(userId: string): Promise<void>;
+
+  // Emails (coordinator and admin; only an admin changes the setting)
+  /** How many days before an event volunteers get a reminder email. 0 = no reminders. */
+  getReminderDays(): Promise<number>;
+  setReminderDays(days: number): Promise<void>;
+  /** The church's most recent emails, newest first. */
+  listEmails(): Promise<SentEmail[]>;
 
   // Platform owner
   listAllChurches(): Promise<Church[]>;

@@ -78,6 +78,7 @@ export function EventDetail() {
         <span>{longDate(ev.date)}{ev.time ? ` · ${ev.time}` : ""}</span>
         {ev.place && <span>{ev.place}</span>}
         {area && <span className={"tag" + (area.kind === "event" ? " event" : "")}>{area.label}</span>}
+        {ev.open_signup && <span className="pill opensu" title="Volunteers can sign themselves up on their page">Open for sign-up</span>}
         <button className="linkbtn" type="button" onClick={() => setEditing(true)}>Edit details</button>
       </div>
       {ev.notes && <p className="notes">{ev.notes}</p>}
@@ -113,7 +114,7 @@ export function EventDetail() {
           <div className="roster">
             {roster.map(({ a, v }) => (
               <div className="rrow" key={a.id}>
-                <div className="who minw0"><b>{v.name}</b><span>{[v.phone, v.email].filter(Boolean).join(" · ") || "No contact info"}</span></div>
+                <div className="who minw0"><b>{v.name}{a.self_signup && <span className="badge">Signed up online</span>}</b><span>{[v.phone, v.email].filter(Boolean).join(" · ") || "No contact info"}</span></div>
                 <div className="seg" role="group" aria-label={`Attendance for ${v.name}`}>
                   {ATT.map((s) => (
                     <button key={s.id} type="button" className={`s-${s.id}`} aria-pressed={a.status === s.id} onClick={() => void setStatus(a, s.id)}>{s.label}</button>

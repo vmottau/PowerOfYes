@@ -46,6 +46,18 @@ await p.click("text=Save my card");
 await p.waitForSelector("text=Edit my card");
 ok(await p.isVisible("text=555-010-0199"), "phone was formatted and saved");
 await shot("1-volunteer");
+
+// 2b. Open sign-up: the volunteer sees open events in the areas they checked and signs up
+const openEv = ".openev:has-text('Movie night setup')";
+await p.waitForSelector(openEv);
+ok(await p.isVisible(`${openEv} >> text=3 of 3 spots left`), "volunteer sees an open event for an area they checked, with the spots left");
+ok(!(await p.isVisible(".openev:has-text('Fall pierogi batch')")) && !(await p.isVisible(".openev:has-text('Harvest potluck')")),
+  "events not open for sign-up, or at another church, are not offered");
+await shot("1b-open-spots");
+await p.click(`${openEv} >> text=Sign me up`);
+await p.waitForSelector(".myev:not(.openev):has-text('Movie night setup')");
+ok(!(await p.isVisible(openEv)), "after signing up, the event moves to the volunteer's schedule");
+await shot("1c-signed-up");
 await signOut();
 
 // 3. Coordinator (invited by email) runs St. Example
@@ -79,6 +91,23 @@ await p.waitForSelector("text=Assigned 1");
 await shot("2-directory");
 await go("Events");
 ok(!(await p.isVisible("text=Harvest potluck")), "coordinator does not see another church's events");
+await p.waitForSelector("a.ev:has-text('Movie night setup') .pill.opensu");
+ok(!(await p.isVisible("a.ev:has-text('Fall pierogi batch') .pill.opensu")), "events list shows which events are open for sign-up");
+await p.click("a.ev:has-text('Movie night setup')");
+await p.waitForSelector(".roster .rrow:has-text('Newbie Volunteer') .badge:has-text('Signed up online')");
+ok(await p.isVisible(".tally b:has-text('1/3')"), "the volunteer who signed up counts toward the spots needed");
+await p.click("text=Edit details");
+ok(await p.isChecked("#ev-open"), "the event form shows it's open for sign-up");
+await p.fill("#ev-needed", "1");
+await p.click("dialog >> text=Save");
+await p.waitForSelector(".tally b:has-text('1/1')");
+await shot("3a-open-event");
+await go("Events");
+await p.click("a.ev:has-text('Fall pierogi batch')");
+await p.click("text=Edit details");
+ok(!(await p.isChecked("#ev-open")), "events start closed for sign-up");
+await p.click("dialog >> text=Cancel");
+await go("Events");
 await p.click("a.ev:has-text('Fall pierogi batch')");
 await p.waitForSelector(".rrow:has-text('Newbie Volunteer')");
 await p.check(".plist label:has-text('Dan Placeholder') input");
@@ -115,6 +144,9 @@ await p.fill("#new-area-event", "Fish Fry"); await p.click("form.newarea:has(#ne
 await p.waitForSelector(".arearow:has-text('Fish Fry')");
 ok(true, "coordinator can add an area of interest");
 ok(!(await p.isVisible("button[role=tab]:has-text('Appearance')")), "coordinator cannot change appearance");
+await p.click("button[role=tab]:has-text('Emails')");
+await p.waitForSelector("#em-days:has-text('2 days before')");
+ok(await p.isVisible("text=a church admin can change this"), "coordinator sees when reminder emails go out, but can't change it");
 await p.click("button[role=tab]:has-text('Backup')");
 {
   const { name, body } = await download(() => p.click("#backup-dl"));
@@ -123,6 +155,16 @@ await p.click("button[role=tab]:has-text('Backup')");
   ok(["volunteers.csv", "events.csv", "rosters.csv", "follow-ups.csv", "ministries.csv"].every((f) => s.includes(f)), "backup holds volunteers, events, rosters, follow-ups and ministries");
   ok(s.includes("Newbie Volunteer") && !s.includes("Grace Volunteer"), "backup holds only this church's people");
 }
+await signOut();
+
+// 3b. Another volunteer finds the open event full
+await signIn("late@example.org", "st-example");
+await p.waitForSelector("text=Fill in your volunteer card");
+await p.fill("#me-name", "Late Volunteer"); await p.check("#me-m-movie-night");
+await p.click("text=Save my card");
+await p.waitForSelector(".openev:has-text('Movie night setup')");
+ok(await p.isVisible(".openev:has-text('Movie night setup') >> text=All spots are taken") && !(await p.isVisible(".openev:has-text('Movie night setup') >> text=Sign me up")),
+  "a full event shows as full, with no sign-up button");
 await signOut();
 
 // 4. Volunteer sees their assignment
@@ -227,6 +269,14 @@ await p.selectOption("select[aria-label='Role for newbie@example.org']", "coordi
 await p.waitForSelector("text=Role updated");
 ok(true, "admin can invite by email and change roles");
 await shot("4a-people");
+await p.click("button[role=tab]:has-text('Emails')");
+await p.waitForSelector("text=Demo mode doesn't send any email");
+await p.selectOption("#em-days", "7");
+await p.waitForSelector("text=Reminders go out 1 week before");
+await p.click("button[role=tab]:has-text('People')"); await p.click("button[role=tab]:has-text('Emails')");
+await p.waitForSelector("#em-days:not([disabled])");
+ok((await p.inputValue("#em-days")) === "7", "admin can change when reminder emails go out");
+await shot("8b-emails");
 await p.click("button[role=tab]:has-text('Appearance')");
 await p.fill("#br-org", "St. Example Parish & School");
 await p.click("button.preset:has-text('Plum')");

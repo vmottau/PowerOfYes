@@ -1,5 +1,5 @@
 import type {
-  Api, Assignment, Branding, Church, ChurchEvent, Followup, Invite, Ministry, Role, Session, Volunteer, VolunteerInput,
+  Api, Assignment, Branding, Church, ChurchEvent, Followup, Invite, Ministry, Role, SentEmail, Session, Volunteer, VolunteerInput,
 } from "./types";
 import { DEFAULT_MINISTRIES } from "../lib/ministries";
 import { DEFAULT_BRANDING } from "../lib/brandingDefaults";
@@ -27,10 +27,12 @@ interface Store {
   events: Row<ChurchEvent>[];
   assignments: Row<Assignment>[];
   followups: Row<Followup>[];
+  /** Days before an event that reminders go out, by church (missing = 2). */
+  reminderDays?: Record<string, number>;
   sessionUserId: string | null;
 }
 
-const KEY = "pov-demo-v5";
+const KEY = "pov-demo-v6";
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 const iso = (daysFromNow: number) => {
   const d = new Date(Date.now() + daysFromNow * 86400000);
@@ -53,9 +55,10 @@ function seed(): Store {
     v(c2.id, "Example: Grace Volunteer", "gv@example.org", ["potluck"]),
   ];
   const events: Row<ChurchEvent>[] = [
-    { id: uid(), church_id: c1.id, name: "Example: Fall pierogi batch", date: iso(9), time: "8:00 am – noon", place: "Parish hall kitchen", area: "pierogies", needed: 6, notes: "" },
-    { id: uid(), church_id: c1.id, name: "Example: Pancake breakfast", date: iso(-12), time: "After 9:00 Mass", place: "Parish hall", area: "pancake", needed: 4, notes: "" },
-    { id: uid(), church_id: c2.id, name: "Example: Harvest potluck", date: iso(5), time: "6:00 pm", place: "Fellowship hall", area: "potluck", needed: 8, notes: "" },
+    { id: uid(), church_id: c1.id, name: "Example: Fall pierogi batch", date: iso(9), time: "8:00 am – noon", place: "Parish hall kitchen", area: "pierogies", needed: 6, notes: "", open_signup: false },
+    { id: uid(), church_id: c1.id, name: "Example: Pancake breakfast", date: iso(-12), time: "After 9:00 Mass", place: "Parish hall", area: "pancake", needed: 4, notes: "", open_signup: false },
+    { id: uid(), church_id: c1.id, name: "Example: Movie night setup", date: iso(16), time: "5:00 pm", place: "Parish lawn", area: "movie-night", needed: 3, notes: "Help set up the screen and chairs.", open_signup: true },
+    { id: uid(), church_id: c2.id, name: "Example: Harvest potluck", date: iso(5), time: "6:00 pm", place: "Fellowship hall", area: "potluck", needed: 8, notes: "", open_signup: true },
   ];
   const assignments: Row<Assignment>[] = [
     { id: uid(), church_id: c1.id, event_id: events[0].id, volunteer_id: volunteers[0].id, status: "assigned", cant_reason: "", cant_at: null },
@@ -97,6 +100,7 @@ export function createDemoApi(): Api {
   const requireAdmin = () => { if (roleIn(cid()) !== "admin") throw new Error("Only a church admin can do that."); };
   const mine = <T extends { church_id: string }>(rows: T[]) => rows.filter((r) => r.church_id === churchId);
   const myVol = () => s.volunteers.find((v) => v.church_id === churchId && v.user_id === s.sessionUserId) ?? null;
+  const taken = (eventId: string) => s.assignments.filter((a) => a.event_id === eventId && a.status !== "cant_make_it").length;
   const notify = () => listeners.forEach((l) => setTimeout(l, 0));
   // Same as the assignments_cant_cleared trigger: taking back "can't make it" clears the note and closes its follow-up.
   const setStatus = (a: Row<Assignment>, status: Assignment["status"]) => {
@@ -202,7 +206,35 @@ export function createDemoApi(): Api {
       if (!v || !a || !ev) throw new Error("That event isn't on your schedule.");
       if (a.status !== "cant_make_it") return;
       if (ev.date && ev.date < todayISO()) throw new Error("This event has already happened.");
+      if (ev.open_signup && ev.needed != null && taken(ev.id) >= ev.needed) throw new Error("Sorry, someone else has signed up for your spot and this event is full now.");
       setStatus(a, "assigned");
+      save();
+    },
+
+    // Same rules as open_events() and sign_up_for_event() in schema.sql.
+    async listOpenEvents() {
+      const v = myVol(); if (!v) return out([]);
+      return out(mine(s.events)
+        .filter((e) => e.open_signup && !(e.date && e.date < todayISO()) && (!e.area || v.ministries.includes(e.area))
+          && !s.assignments.some((a) => a.event_id === e.id && a.volunteer_id === v.id))
+        .sort((x, y) => (x.date ?? "9999").localeCompare(y.date ?? "9999") || x.name.localeCompare(y.name))
+        .map((e) => ({ ...strip(e), taken: taken(e.id) })));
+    },
+    async signUpForEvent(eventId) {
+      const ev = mine(s.events).find((e) => e.id === eventId);
+      if (!ev) throw new Error("That event could not be found.");
+      const v = myVol(); if (!v) throw new Error("Please fill in your volunteer card first.");
+      if (!ev.open_signup) throw new Error("This event isn't open for sign-up.");
+      if (ev.date && ev.date < todayISO()) throw new Error("This event has already happened.");
+      if (ev.area && !v.ministries.includes(ev.area)) {
+        const label = s.ministries.find((m) => m.church_id === ev.church_id && m.id === ev.area)?.label ?? ev.area;
+        throw new Error(`This event is for people who checked ${label}. Add it to your card to sign up.`);
+      }
+      const a = s.assignments.find((x) => x.event_id === ev.id && x.volunteer_id === v.id);
+      if (a && a.status !== "cant_make_it") throw new Error("You're already signed up for this event.");
+      if (ev.needed != null && taken(ev.id) >= ev.needed) throw new Error("Sorry, this event is full now.");
+      if (a) setStatus(a, "assigned");
+      else s.assignments.push({ id: uid(), church_id: ev.church_id, event_id: ev.id, volunteer_id: v.id, status: "assigned", cant_reason: "", cant_at: null, self_signup: true });
       save();
     },
 
@@ -310,6 +342,31 @@ export function createDemoApi(): Api {
       if (m.role === "admin" && s.memberships.filter((x) => x.church_id === churchId && x.role === "admin").length <= 1)
         throw new Error("A church must always have at least one admin.");
       s.memberships = s.memberships.filter((x) => x !== m); save();
+    },
+
+    async getReminderDays() { requireStaff(); return out(s.reminderDays?.[cid()] ?? 2); },
+    async setReminderDays(days) {
+      requireAdmin();
+      if (!Number.isInteger(days) || days < 0 || days > 14) throw new Error("Pick between 0 and 14 days.");
+      s.reminderDays = { ...s.reminderDays, [cid()]: days }; save();
+    },
+    // Demo mode sends nothing. This shows what the real site would send: today's reminders and "can't make it" alerts.
+    async listEmails() {
+      requireStaff();
+      const days = s.reminderDays?.[cid()] ?? 2;
+      const today = todayISO();
+      const until = new Date(today + "T12:00:00"); until.setDate(until.getDate() + days);
+      const last = until.toISOString().slice(0, 10);
+      const list: SentEmail[] = [];
+      for (const a of mine(s.assignments)) {
+        const ev = s.events.find((e) => e.id === a.event_id); const v = s.volunteers.find((x) => x.id === a.volunteer_id);
+        if (!ev || !v) continue;
+        if (a.status === "assigned" && days > 0 && v.email && ev.date && ev.date > today && ev.date <= last)
+          list.push({ id: `r-${a.id}`, kind: "reminder", to_email: v.email, subject: `Reminder: ${ev.name}`, status: "waiting", error: "", created_at: new Date().toISOString(), sent_at: null });
+        if (a.status === "cant_make_it")
+          list.push({ id: `c-${a.id}`, kind: "cant_make_it", to_email: "the event's coordinator", subject: `${v.name} can't make it to ${ev.name}`, status: "waiting", error: "", created_at: a.cant_at ?? new Date().toISOString(), sent_at: null });
+      }
+      return out(list.sort((x, y) => y.created_at.localeCompare(x.created_at)));
     },
 
     async listAllChurches() { if (!me()?.isPlatformAdmin) throw new Error("Only the platform owner can do that."); return out(s.churches); },

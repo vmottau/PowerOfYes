@@ -66,6 +66,14 @@ Under **Where you're scheduled** you'll see each upcoming event with its date, t
 
 Changed your mind? Click **I can make it after all** on the same event to get back on the schedule.
 
+### Signing yourself up for open spots
+
+When a coordinator opens an event for sign-up, and it matches the areas on your card, it appears under **Open spots you can sign up for** on your page. Click **Sign me up** while spots are left. It then moves to **Where you're scheduled**.
+
+### Reminder emails
+
+If your card has an email address, you get a reminder email before each event you're on, with the time, place and notes, and a link in case you can't make it. Replies go to the coordinator who made the event.
+
 ## For coordinators
 
 Coordinators land on **Home** after signing in. In demo mode, sign in as **Coordinator** to follow along.
@@ -93,6 +101,18 @@ This is the searchable version of the card box.
 
 Click **+ Add a paper card**, fill in what's on the card, and click **Save**. You can also add **Staff notes** (only coordinators see them) and tick **We've reached out to this person** once someone has called them. To fix a card later, click **Edit** on it. Volunteers who sign up online appear here on their own.
 
+### Bringing in a stack of paper cards at once
+
+1. On **Volunteers**, click **Import spreadsheet**, then **Download blank template**.
+2. Type one card per row. Only the name is required. For interests, copy the names from the list in the template, separated by semicolons. Excel, Google Sheets (download as Excel) and CSV files all work.
+3. Upload the file. Before anything is saved, you see every row and what will happen to it:
+    - New people are added.
+    - Someone already listed (same name, phone or email) has their card updated. This only fills in what's missing and adds new interests and notes. It never erases anything.
+    - Rows with no name or a broken email can't be added yet.
+4. Click the **Save** button (it says how many volunteers will be saved). If some rows weren't imported, click **Download rows that weren't imported**, fix them, and upload that file again.
+
+Interests that aren't on your church's list are kept in the staff notes, so nothing written on a card is lost.
+
 ### Scheduling people for an event
 
 There are two ways to put people on an event.
@@ -101,9 +121,11 @@ There are two ways to put people on an event.
 
 **From the event itself:**
 
-1. Open **Events & projects** and click **+ New event or project**. Give it a name, date, time, place, the **Area of interest** it belongs to, how many **Volunteers needed**, and **Notes for volunteers** (what to bring, who's in charge). Volunteers see those notes. Click **Save**.
+1. Open **Events & projects** and click **+ New event or project**. Give it a name, date, time, place, the **Area of interest** it belongs to, how many **Volunteers needed**, and **Notes for volunteers** (what to bring, who's in charge). Volunteers see those notes. Tick **Open for sign-up** if you'd like volunteers to sign themselves up instead of assigning everyone yourself. Click **Save**.
 2. On the event page, under **Add volunteers**, the list starts with people who checked that area, marked "Interested". Untick **Only people who checked …** to see everyone.
 3. Tick people and click **Add to roster**. They now see the event on their own page.
+
+For an event that's **Open for sign-up**, volunteers who ticked its area (or everyone, for a general event) see it on their page and can click **Sign me up** until the "Volunteers needed" number is reached. On the roster, they're marked "Signed up online". A spot freed by Can't make it opens up again.
 
 ### After the event: who came
 
@@ -119,6 +141,7 @@ A follow-up is a note like "Call Ann about the pierogi batch, due Friday". Add o
 
 - **Ministries & areas**: the checkboxes on the volunteer card, in two groups, Parish ministries and Events & activities. Add one, edit its name or short note, move it up or down, or **Hide** it. Hiding stops offering it on new cards but keeps it on people who already checked it. **Delete** removes it everywhere.
 - **People & roles**: who has joined the church and their role, plus the church's **Volunteer sign-up link**. Click **Copy** to share it in the bulletin, by email or as a QR code. Only a church admin can change roles.
+- **Emails**: every reminder and Can't make it email the app sent, and whether it went out. Volunteers get a reminder before each event they're on, and the coordinator who made an event gets an email right away when someone clicks Can't make it. In demo mode this shows what would be sent, without sending anything.
 - **Backup**: **Download backup (.zip)** saves every volunteer, event, roster and follow-up as spreadsheets. Do this about once a month and keep it with parish records, somewhere only staff can open, because it holds phone numbers and emails.
 
 ## For church admins
@@ -137,6 +160,10 @@ In the list of everyone who has joined, change a person's role with the dropdown
 
 Under **Volunteer sign-up link**, click **Copy** and share it in the bulletin, in an email, on the church website or as a QR code. Anyone who signs up through it joins your church, and no one else's.
 
+### Choosing when reminders go out
+
+Under **Manage → Emails**, choose how far ahead reminder emails go out: 1, 2 or 3 days, or 1 week before the event. Choose **Off** to stop reminders for your church. Reminders go out in the morning and use a free email service, so they cost nothing.
+
 ### Making it look like your church
 
 Open **Manage → Appearance** to set the church name, the app title, the welcome line on the sign-in page, a main and an accent color (or pick a ready-made palette like Navy or Forest), and a logo (a square image works best). Changes preview right away. Click **Save appearance** to apply them for everyone, or **Undo changes** to go back.
@@ -144,18 +171,6 @@ Open **Manage → Appearance** to set the church name, the app title, the welcom
 ## For the platform owner
 
 Most church staff will never see this role. The platform owner lands on **All churches**, which lists every church on the site. To add one, fill in the church's name, a short **Link name** like `st-marys`, and **Their admin's email**, then click **Add church**. That person becomes the church's admin the first time they sign in. **Copy link** copies a church's sign-up link, **Open** goes into a church, and **Pause** hides a church from sign-up without deleting anything.
-
-## Coming soon
-
-These features are built and waiting for final approval. Until they're merged they aren't on the live site or in demo mode.
-
-| Feature | Who uses it | How it will work |
-| --- | --- | --- |
-| Volunteers sign themselves up | Coordinators, volunteers | When making an event, a coordinator ticks **Open for sign-up**. Volunteers who checked that area see it under **Open spots you can sign up for** and click **Sign me up** until the event is full. On the roster, those people are marked "Signed up online". |
-| Import a stack of paper cards | Coordinators | Under **Volunteers → Import spreadsheet**, download the blank template, type one card per row, and upload it. A preview shows every row before anything is saved, flags missing names and broken emails, and spots people who are already listed. It only adds to existing cards and never erases. |
-| Email reminders | Volunteers, coordinators, admins | Volunteers get an email before each event with the time, place and notes. Coordinators get an email right away when someone clicks Can't make it. Admins choose how far ahead (Off, 1, 2 or 3 days, or 1 week) under **Manage → Emails**, where staff can also see every email that went out. Demo mode will show what would be sent without sending it. |
-
-Email reminders use a free email service (up to 300 emails a day), so they add no cost.
 
 ## Common questions
 

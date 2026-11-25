@@ -2,7 +2,7 @@
 
 A web app for the parish volunteer program. It replaces the paper "Power of Yes" cards.
 
-- **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled.
+- **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled. If they can't make an event, they press **Can't make it** on *My card*: their spot opens up, and coordinators see it on their home page and get a follow-up to find someone else.
 - **Coordinators** see every volunteer by area of interest, type in paper cards, create events and projects, assign people, and mark who showed up.
 - **Coordinators** also keep a follow-up to-do list ("Call Ann about the pierogi batch, due Friday") and maintain the list of ministries and events volunteers can pick from.
 - **Church admins** do everything coordinators do, invite coordinators by email, and set the church's look.
@@ -36,7 +36,7 @@ Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts
 ## One-time setup
 
 ### 1. Create the Supabase project
-(If you already ran an older `schema.sql`, run the new one again. It's safe to re-run and adds what's missing.)
+(If you already ran an older `schema.sql`, run the new one again. It's safe to re-run and adds what's missing, such as the "Can't make it" button's columns.)
 
 1. Sign up at [supabase.com](https://supabase.com) and click **New project**. Pick any name and region, and save the database password somewhere safe.
 2. Open **SQL Editor → New query**, paste everything from [`supabase/schema.sql`](supabase/schema.sql), and click **Run**.

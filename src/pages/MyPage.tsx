@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useApi, type VolunteerInput } from "../api";
+import { useApi, type MyAssignment, type VolunteerInput } from "../api";
 import { PageHeader, useAppState } from "../App";
 import { VolunteerFields, validateVolunteer } from "../components/VolunteerFields";
+import { Modal } from "../components/Modal";
 import { dateParts, isPast, longDate } from "../lib/format";
 import { errText, useLoad, useToast } from "../lib/hooks";
 
-const STATUS_TEXT = { assigned: "Scheduled", attended: "You served", missed: "Marked absent" } as const;
+const STATUS_TEXT = { assigned: "Scheduled", attended: "You served", missed: "Marked absent", cant_make_it: "Couldn't make it" } as const;
 
 export function MyPage() {
   const api = useApi();
@@ -17,6 +18,7 @@ export function MyPage() {
   const [form, setForm] = useState<VolunteerInput>({ name: "", phone: "", email: session.email, ministries: [] });
   const [warn, setWarn] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cantFor, setCantFor] = useState<MyAssignment | null>(null);
 
   useEffect(() => {
     if (me.data) setForm({ name: me.data.name, phone: me.data.phone, email: me.data.email, ministries: me.data.ministries });
@@ -33,6 +35,11 @@ export function MyPage() {
       setEditing(false);
       toast(me.data ? "Your card is updated" : "Thank you for saying yes! Your card is saved.");
     } catch (err) { setWarn(errText(err)); } finally { setBusy(false); }
+  }
+
+  async function backIn(x: MyAssignment) {
+    try { await api.canMakeItAfterAll(x.assignment.id); toast("Great, you're back on the schedule"); await mine.reload(); }
+    catch (err) { toast(errText(err)); }
   }
 
   if (me.loading && !me.data) return <p className="muted">Loading your card…</p>;
@@ -83,13 +90,19 @@ export function MyPage() {
             <div className="list">
               {upcoming.map(({ assignment, event }) => {
                 const d = dateParts(event.date);
+                const cant = assignment.status === "cant_make_it";
                 return (
-                  <div key={assignment.id} className="ev static">
+                  <div key={assignment.id} className={"ev static myev" + (cant ? " cant" : "")}>
                     <div className="date"><small>{d.mon}</small><b>{d.day}</b></div>
                     <div className="minw0">
                       <h3>{event.name}</h3>
                       <p>{[longDate(event.date), event.time, event.place].filter(Boolean).join(" · ")}</p>
                       {event.notes && <p>{event.notes}</p>}
+                      {cant && <p className="cantnote"><span className="pill s-cant_make_it">Can't make it</span> We let the coordinators know. Thank you for telling us ahead of time.</p>}
+                    </div>
+                    <div className="myev-act">
+                      {assignment.status === "assigned" && <button className="btn small" type="button" onClick={() => setCantFor({ assignment, event })}>Can't make it</button>}
+                      {cant && <button className="linkbtn" type="button" onClick={() => void backIn({ assignment, event })}>I can make it after all</button>}
                     </div>
                   </div>
                 );
@@ -113,6 +126,43 @@ export function MyPage() {
           )}
         </section>
       )}
+
+      <Modal open={!!cantFor} onClose={() => setCantFor(null)} labelledBy="cant-dlg-title">
+        {cantFor && <CantMakeItForm item={cantFor} onCancel={() => setCantFor(null)}
+          onDone={() => { setCantFor(null); toast("Thanks for letting us know. The coordinators have been told."); void mine.reload(); }} />}
+      </Modal>
     </div>
+  );
+}
+
+function CantMakeItForm({ item, onCancel, onDone }: { item: MyAssignment; onCancel: () => void; onDone: () => void }) {
+  const api = useApi();
+  const [reason, setReason] = useState("");
+  const [warn, setWarn] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setWarn(null);
+    try { await api.cantMakeIt(item.assignment.id, reason); onDone(); }
+    catch (err) { setWarn(errText(err)); setBusy(false); }
+  }
+  return (
+    <form onSubmit={submit} noValidate>
+      <h2 id="cant-dlg-title">Can't make it?</h2>
+      <p className="muted">{item.event.name} · {[longDate(item.event.date), item.event.time].filter(Boolean).join(" · ")}</p>
+      <p>No problem. We'll free up your spot and let the coordinators know so they can find someone else.</p>
+      <div className="field">
+        <label htmlFor="cant-reason">Anything they should know? (optional)</label>
+        <textarea id="cant-reason" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Out of town that weekend. Happy to help next time!" />
+      </div>
+      {warn && <p className="warn">{warn}</p>}
+      <div className="formfoot">
+        <div />
+        <div className="right">
+          <button className="btn" type="button" onClick={onCancel}>Keep me on</button>
+          <button className="btn primary" type="submit" disabled={busy}>{busy ? "Sending…" : "Let them know"}</button>
+        </div>
+      </div>
+    </form>
   );
 }

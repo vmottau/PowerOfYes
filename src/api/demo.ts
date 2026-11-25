@@ -4,6 +4,8 @@ import type {
 import { DEFAULT_MINISTRIES } from "../lib/ministries";
 import { DEFAULT_BRANDING } from "../lib/brandingDefaults";
 import { pickCurrentChurch, rememberChurch } from "./churchChoice";
+import { cantMakeItNote } from "../lib/cantMakeIt";
+import { todayISO } from "../lib/format";
 
 /**
  * Demo mode: everything lives in this browser (localStorage), nothing is sent anywhere.
@@ -28,7 +30,7 @@ interface Store {
   sessionUserId: string | null;
 }
 
-const KEY = "pov-demo-v4";
+const KEY = "pov-demo-v5";
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now().toString(36));
 const iso = (daysFromNow: number) => {
   const d = new Date(Date.now() + daysFromNow * 86400000);
@@ -56,9 +58,9 @@ function seed(): Store {
     { id: uid(), church_id: c2.id, name: "Example: Harvest potluck", date: iso(5), time: "6:00 pm", place: "Fellowship hall", area: "potluck", needed: 8, notes: "" },
   ];
   const assignments: Row<Assignment>[] = [
-    { id: uid(), church_id: c1.id, event_id: events[0].id, volunteer_id: volunteers[0].id, status: "assigned" },
-    { id: uid(), church_id: c1.id, event_id: events[1].id, volunteer_id: volunteers[0].id, status: "attended" },
-    { id: uid(), church_id: c1.id, event_id: events[1].id, volunteer_id: volunteers[3].id, status: "missed" },
+    { id: uid(), church_id: c1.id, event_id: events[0].id, volunteer_id: volunteers[0].id, status: "assigned", cant_reason: "", cant_at: null },
+    { id: uid(), church_id: c1.id, event_id: events[1].id, volunteer_id: volunteers[0].id, status: "attended", cant_reason: "", cant_at: null },
+    { id: uid(), church_id: c1.id, event_id: events[1].id, volunteer_id: volunteers[3].id, status: "missed", cant_reason: "", cant_at: null },
   ];
   const followups: Row<Followup>[] = [
     { id: uid(), church_id: c1.id, volunteer_id: volunteers[1].id, note: "Call about greeting at the 10:30 Mass", due: iso(-1), assigned_to: null, done: false, done_at: null, created_at: now },
@@ -173,6 +175,30 @@ export function createDemoApi(): Api {
         .map((a) => ({ assignment: strip(a), event: s.events.find((e) => e.id === a.event_id)! })).filter((x) => x.event).map((x) => ({ ...x, event: strip(x.event) })));
     },
 
+    async cantMakeIt(id, reason) {
+      const v = myVol();
+      const a = v && s.assignments.find((x) => x.id === id && x.volunteer_id === v.id);
+      const ev = a && s.events.find((e) => e.id === a.event_id);
+      if (!v || !a || !ev) throw new Error("That event isn't on your schedule.");
+      if (a.status !== "assigned") throw new Error("You've already let us know about this event.");
+      if (ev.date && ev.date < todayISO()) throw new Error("This event has already happened.");
+      const r = reason.trim().slice(0, 500), now = new Date().toISOString();
+      Object.assign(a, { status: "cant_make_it", cant_reason: r, cant_at: now });
+      s.followups.push({ id: uid(), church_id: a.church_id, volunteer_id: v.id, assignment_id: a.id, note: cantMakeItNote(ev, r), due: todayISO(), assigned_to: null, done: false, done_at: null, created_at: now });
+      save();
+    },
+    async canMakeItAfterAll(id) {
+      const v = myVol();
+      const a = v && s.assignments.find((x) => x.id === id && x.volunteer_id === v.id);
+      const ev = a && s.events.find((e) => e.id === a.event_id);
+      if (!v || !a || !ev) throw new Error("That event isn't on your schedule.");
+      if (a.status !== "cant_make_it") return;
+      if (ev.date && ev.date < todayISO()) throw new Error("This event has already happened.");
+      Object.assign(a, { status: "assigned", cant_reason: "", cant_at: null });
+      for (const f of s.followups) if (f.assignment_id === a.id && !f.done) { f.done = true; f.done_at = new Date().toISOString(); }
+      save();
+    },
+
     async listVolunteers() { requireStaff(); return out(mine(s.volunteers).sort((a, b) => a.name.localeCompare(b.name)).map(strip)); },
     async saveVolunteer(input, id) {
       requireStaff();
@@ -207,7 +233,7 @@ export function createDemoApi(): Api {
       let n = 0;
       for (const vid of ids) {
         if (s.assignments.some((a) => a.event_id === eventId && a.volunteer_id === vid)) continue;
-        s.assignments.push({ id: uid(), church_id: cid(), event_id: eventId, volunteer_id: vid, status: "assigned" }); n++;
+        s.assignments.push({ id: uid(), church_id: cid(), event_id: eventId, volunteer_id: vid, status: "assigned", cant_reason: "", cant_at: null }); n++;
       }
       save(); return n;
     },

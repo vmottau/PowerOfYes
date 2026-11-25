@@ -35,9 +35,11 @@ export function EventDetail() {
 
   const vols = data.data.vols;
   const volById = new Map(vols.map((v) => [v.id, v]));
-  const rs = data.data.asg.filter((a) => a.event_id === ev.id && volById.has(a.volunteer_id));
+  const allRs = data.data.asg.filter((a) => a.event_id === ev.id && volById.has(a.volunteer_id));
+  const rs = allRs.filter((a) => a.status !== "cant_make_it");
+  const cantGo = allRs.filter((a) => a.status === "cant_make_it").map((a) => ({ a, v: volById.get(a.volunteer_id)! }));
   const roster = rs.map((a) => ({ a, v: volById.get(a.volunteer_id)! })).sort((x, y) => x.v.name.localeCompare(y.v.name));
-  const onRoster = new Set(rs.map((a) => a.volunteer_id));
+  const onRoster = new Set(allRs.map((a) => a.volunteer_id));
   const area = ministries.find((m) => m.id === ev.area);
   const interested = (vid: string) => !!ev.area && !!volById.get(vid)?.ministries.includes(ev.area);
   const cnt = (s: AttendanceStatus) => rs.filter((a) => a.status === s).length;
@@ -105,6 +107,24 @@ export function EventDetail() {
             ))}
           </div>
         ) : <p className="muted">No one is assigned yet. Pick volunteers below.</p>}
+        {cantGo.length > 0 && (
+          <div className="cantlist">
+            <h3>Can't make it</h3>
+            {cantGo.map(({ a, v }) => (
+              <div className="rrow cant" key={a.id}>
+                <div className="who minw0">
+                  <b>{v.name}</b>
+                  <span>{[v.phone, v.email].filter(Boolean).join(" · ") || "No contact info"}</span>
+                  {a.cant_reason && <span className="reason">“{a.cant_reason}”</span>}
+                </div>
+                <div className="actions">
+                  <button className="btn small" type="button" onClick={() => void act(() => api.setAttendance(a.id, "assigned"), `${v.name} is back on the roster`)}>Put back on roster</button>
+                  <button className="btn small" type="button" onClick={() => void act(() => api.unassign(a.id), `Removed ${v.name}`)}>Remove</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="sect">

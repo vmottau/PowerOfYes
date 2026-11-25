@@ -1,5 +1,6 @@
 export type Role = "volunteer" | "coordinator" | "admin";
-export type AttendanceStatus = "assigned" | "attended" | "missed";
+/** "cant_make_it": the volunteer said ahead of time that they can't come. Their spot is free again. */
+export type AttendanceStatus = "assigned" | "attended" | "missed" | "cant_make_it";
 
 /** A person as seen from the current church: their email and role there. */
 export interface Profile {
@@ -65,6 +66,10 @@ export interface Assignment {
   event_id: string;
   volunteer_id: string;
   status: AttendanceStatus;
+  /** What the volunteer wrote when they said they can't make it ("" if nothing). */
+  cant_reason: string;
+  /** When they said they can't make it, or null. */
+  cant_at: string | null;
 }
 
 export interface Followup {
@@ -76,6 +81,8 @@ export interface Followup {
   done: boolean;
   done_at: string | null;
   created_at: string;
+  /** Set when the follow-up was made by a volunteer's "I can't make it". */
+  assignment_id?: string | null;
 }
 
 export interface FollowupInput {
@@ -148,6 +155,10 @@ export interface Api {
   getMyVolunteer(): Promise<Volunteer | null>;
   saveMyVolunteer(input: VolunteerInput): Promise<Volunteer>;
   listMyAssignments(): Promise<MyAssignment[]>;
+  /** Volunteer: "I can't make it" for one of their upcoming events. Frees the spot and adds a follow-up for coordinators. */
+  cantMakeIt(assignmentId: string, reason: string): Promise<void>;
+  /** Volunteer: takes back "I can't make it" (only while the event is still upcoming). */
+  canMakeItAfterAll(assignmentId: string): Promise<void>;
 
   // Coordinator and admin
   listVolunteers(): Promise<Volunteer[]>;

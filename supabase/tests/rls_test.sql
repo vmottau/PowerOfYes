@@ -116,6 +116,44 @@ do $$ begin
   if found then raise exception 'FAIL: volunteer edited attendance'; end if;
 end $$;
 
+-- "Can't make it": a volunteer can only use it on their own assignment, through the function
+do $$ begin
+  begin
+    insert into followups (church_id, volunteer_id, note) select church_id, id, 'sneaky' from volunteers;
+    raise exception 'FAIL: volunteer wrote a follow-up directly';
+  exception when insufficient_privilege then null; end;
+end $$;
+select cant_make_it((select id from assignments), 'Out of town');
+select pg_temp.expect((select status from assignments) = 'cant_make_it', 'volunteer can say they can''t make it');
+select pg_temp.expect((select cant_reason from assignments) = 'Out of town', 'their note is saved');
+select pg_temp.expect((select count(*) from followups) = 0, 'volunteer still sees no follow-ups');
+do $$ begin
+  begin perform cant_make_it((select id from assignments), ''); raise exception 'FAIL: said it twice';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+select can_make_it_after_all((select id from assignments));
+select pg_temp.expect((select status from assignments) = 'assigned', 'volunteer can take it back');
+select cant_make_it((select id from assignments), '');
+-- another volunteer cannot use it on someone else's assignment
+reset role;
+do $$ declare a uuid := (select id from assignments limit 1); begin
+  set local role authenticated;
+  perform set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000b1', true);
+  begin
+    perform cant_make_it(a, '');
+    raise exception 'FAIL: volunteer said can''t make it for someone else';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+set role authenticated;
+-- the coordinator sees it on the roster and as a follow-up assigned to the event's creator
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1');
+select pg_temp.expect((select status from assignments) = 'cant_make_it', 'coordinator sees the volunteer can''t make it');
+select pg_temp.expect((select count(*) from followups where assignment_id is not null and not done) = 1, 'one open follow-up for the spot (the taken-back one is closed)');
+select pg_temp.expect((select note from followups where assignment_id is not null and not done) like 'Can''t make it to Pierogi batch (Jan 1). Find someone%', 'follow-up says which event');
+select pg_temp.expect((select assigned_to from followups where assignment_id is not null and not done) = '00000000-0000-0000-0000-0000000000a1', 'follow-up goes to whoever created the event');
+select pg_temp.expect((select count(*) from followups where assignment_id is not null and done) = 1, 'taking it back closed its follow-up');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
+
 -- the last admin of a church cannot be removed or demoted
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
 do $$ begin

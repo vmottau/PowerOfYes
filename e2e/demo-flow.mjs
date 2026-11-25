@@ -91,6 +91,34 @@ await signIn("newbie@example.org");
 await p.waitForSelector("text=Example: Fall pierogi batch");
 ok(true, "volunteer sees the event they were assigned to");
 
+// 4b. "Can't make it": the volunteer backs out ahead of time, and the coordinator finds out
+const myEv = ".myev:has-text('Fall pierogi batch')";
+await p.click(`${myEv} >> button:has-text("Can't make it")`);
+await p.fill("#cant-reason", "Out of town that weekend");
+await p.click("dialog >> text=Let them know");
+await p.waitForSelector(`${myEv} .pill.s-cant_make_it`);
+ok(true, "volunteer can say they can't make it");
+await p.click(`${myEv} >> text=I can make it after all`);
+await p.waitForSelector(`${myEv} button:has-text("Can't make it")`);
+ok(true, "volunteer can take it back");
+await p.click(`${myEv} >> button:has-text("Can't make it")`);
+await p.fill("#cant-reason", "Out of town that weekend");
+await p.click("dialog >> text=Let them know");
+await p.waitForSelector(`${myEv} .pill.s-cant_make_it`);
+await shot("4b-cant-make-it");
+await signOut();
+await signIn("coordinator@example.org");
+await p.waitForSelector(".panel.alert .cantrow:has-text('Newbie Volunteer')");
+ok(await p.isVisible(".panel.alert .cantrow:has-text('Out of town that weekend')"), "coordinator's home page shows who can't make it, with their note");
+ok(await p.isVisible(".fu:has-text(\"Can't make it to Example: Fall pierogi batch\")"), "a follow-up to fill the spot is on the coordinator's list");
+await shot("4c-dashboard-cant");
+await p.click(".panel.alert .cantrow:has-text('Newbie Volunteer')");
+await p.waitForSelector(".cantlist .rrow:has-text('Newbie Volunteer')");
+ok(!(await p.isVisible(".roster .rrow:has-text('Newbie Volunteer')")), "their spot is freed on the roster");
+await signOut();
+await signIn("newbie@example.org");
+await p.waitForSelector("text=Example: Fall pierogi batch");
+
 ok(!(await p.isVisible("select[aria-label='Switch church']")), "a volunteer at one church sees no church picker");
 await signOut();
 

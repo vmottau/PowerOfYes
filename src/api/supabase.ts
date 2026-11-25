@@ -123,9 +123,17 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       if (!user) return [];
       const me = check(await sb.from("volunteers").select("id").eq("church_id", cid()).eq("user_id", user.id).maybeSingle()) as { id: string } | null;
       if (!me) return [];
-      const rows = check(await sb.from("assignments").select("id, event_id, volunteer_id, status, events(*)").eq("volunteer_id", me.id)) as unknown as
+      const rows = check(await sb.from("assignments").select("id, event_id, volunteer_id, status, cant_reason, cant_at, events(*)").eq("volunteer_id", me.id)) as unknown as
         (Assignment & { events: ChurchEvent | null })[];
       return rows.filter((r) => r.events).map(({ events, ...a }) => ({ assignment: a, event: events! }));
+    },
+
+    async cantMakeIt(assignmentId, reason) {
+      check(await sb.rpc("cant_make_it", { assignment: assignmentId, reason }));
+    },
+
+    async canMakeItAfterAll(assignmentId) {
+      check(await sb.rpc("can_make_it_after_all", { assignment: assignmentId }));
     },
 
     async listVolunteers() {
@@ -163,7 +171,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listAssignments() {
-      return check(await sb.from("assignments").select("id, event_id, volunteer_id, status").eq("church_id", cid())) as Assignment[];
+      return check(await sb.from("assignments").select("id, event_id, volunteer_id, status, cant_reason, cant_at").eq("church_id", cid())) as Assignment[];
     },
 
     async assign(eventId, volunteerIds) {

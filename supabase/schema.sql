@@ -6,7 +6,8 @@
 --   Platform owner : the first account ever created. Adds churches and can help in any church.
 --   Church admin   : runs one church: its look, its people and roles, plus everything a coordinator does.
 --   Coordinator    : sees that church's volunteers, events, follow-ups and lists; records attendance.
---   Volunteer      : their own card at that church and the events they're assigned to.
+--   Volunteer      : their own card at that church and the events they're assigned to, and can say
+--                    "I can't make it" to an upcoming one (see cant_make_it below).
 -- Every row of church data carries church_id, and every rule below checks the person's role in that church.
 
 create extension if not exists pgcrypto;
@@ -144,6 +145,15 @@ create table if not exists public.followups (
   foreign key (volunteer_id, church_id) references public.volunteers (id, church_id) on delete cascade
 );
 create index if not exists followups_church_idx on public.followups (church_id, done, due);
+
+-- Added for the "Can't make it" button. These lines bring an older database up to date when re-run.
+alter table public.assignments add column if not exists cant_reason text not null default '' check (length(cant_reason) <= 500);
+alter table public.assignments add column if not exists cant_at timestamptz;
+alter table public.assignments drop constraint if exists assignments_status_check;
+alter table public.assignments add constraint assignments_status_check
+  check (status in ('assigned', 'attended', 'missed', 'cant_make_it'));
+-- The follow-up made when a volunteer says they can't make it points at that assignment.
+alter table public.followups add column if not exists assignment_id uuid references public.assignments (id) on delete set null;
 
 -- ---------------------------------------------------------------------------
 -- Role helpers (security definer so the rules can read memberships without recursion)
@@ -415,6 +425,55 @@ begin
 end;
 $$;
 
+-- Volunteer: "I can't make it" for one of their own upcoming events. Frees the spot and puts a
+-- follow-up on the coordinators' list (assigned to whoever created the event, if they're still staff).
+create or replace function public.cant_make_it(assignment uuid, reason text default '') returns void
+language plpgsql security definer set search_path = public as $$
+declare a record; ev record; v record; r text := left(trim(coalesce(reason, '')), 500); owner uuid;
+begin
+  select * into a from public.assignments where id = assignment;
+  if a.id is null or a.volunteer_id is distinct from public.my_volunteer_id(a.church_id) then
+    raise exception 'That event isn''t on your schedule';
+  end if;
+  if a.status <> 'assigned' then raise exception 'You''ve already let us know about this event'; end if;
+  select * into ev from public.events where id = a.event_id;
+  -- a day of slack, because the database's "today" is UTC
+  if ev.date is not null and ev.date < current_date - 1 then raise exception 'This event has already happened'; end if;
+  select * into v from public.volunteers where id = a.volunteer_id;
+  update public.assignments set status = 'cant_make_it', cant_reason = r, cant_at = now() where id = a.id;
+  owner := case when public.church_role_of(ev.created_by, a.church_id) in ('coordinator', 'admin') then ev.created_by end;
+  insert into public.followups (church_id, volunteer_id, assignment_id, note, due, assigned_to)
+  values (a.church_id, a.volunteer_id, a.id,
+          'Can''t make it to ' || ev.name || coalesce(' (' || to_char(ev.date, 'FMMon FMDD') || ')', '')
+            || '. Find someone to fill the spot.' || case when r <> '' then ' They said: "' || r || '"' else '' end,
+          current_date, owner);
+end;
+$$;
+
+-- Volunteer: takes back "I can't make it" while the event is still upcoming. Closes the follow-up it made.
+create or replace function public.can_make_it_after_all(assignment uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare a record; ev record;
+begin
+  select * into a from public.assignments where id = assignment;
+  if a.id is null or a.volunteer_id is distinct from public.my_volunteer_id(a.church_id) then
+    raise exception 'That event isn''t on your schedule';
+  end if;
+  if a.status <> 'cant_make_it' then return; end if;
+  select * into ev from public.events where id = a.event_id;
+  if ev.date is not null and ev.date < current_date - 1 then raise exception 'This event has already happened'; end if;
+  update public.assignments set status = 'assigned', cant_reason = '', cant_at = null where id = a.id;
+  update public.followups set done = true, done_at = now() where assignment_id = a.id and not done;
+end;
+$$;
+
+-- Someone else's role at a church (for the functions above; not callable by the app).
+create or replace function public.church_role_of(u uuid, c uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select role from public.memberships where church_id = c and user_id = u
+$$;
+revoke execute on function public.church_role_of(uuid, uuid) from public, anon, authenticated;
+
 -- The name and look of the one church behind a link like /#/c/st-marys, for its sign-in page.
 create or replace function public.church_by_slug(church_slug text)
 returns table (id uuid, slug text, org_name text, app_title text, tagline text,
@@ -430,6 +489,10 @@ revoke execute on function public.sync_me() from public, anon;
 revoke execute on function public.join_church(text) from public, anon;
 revoke execute on function public.create_church(text, text, text) from public, anon;
 revoke execute on function public.invite_to_church(uuid, text, text) from public, anon;
+revoke execute on function public.cant_make_it(uuid, text) from public, anon;
+revoke execute on function public.can_make_it_after_all(uuid) from public, anon;
+grant execute on function public.cant_make_it(uuid, text) to authenticated;
+grant execute on function public.can_make_it_after_all(uuid) to authenticated;
 grant execute on function public.sync_me() to authenticated;
 grant execute on function public.join_church(text) to authenticated;
 grant execute on function public.create_church(text, text, text) to authenticated;

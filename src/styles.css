@@ -234,6 +234,7 @@ a.mini:hover { background: var(--bg); }
 .pill.online, .pill.s-assigned { background: var(--primary-soft); color: var(--primary-text); }
 .pill.paper { background: var(--line); color: var(--muted); }
 .pill.s-missed { background: var(--danger-soft); color: var(--danger); }
+.pill.s-cant_make_it { background: color-mix(in oklab, var(--warn-c) 16%, var(--surface)); color: var(--warn-c); }
 @media (max-width: 640px) {
   .vol { grid-template-columns: auto minmax(0, 1fr); }
   .vol .side { grid-column: 2; justify-content: start; }
@@ -412,3 +413,20 @@ dialog h2 { font-family: var(--display); font-size: 28px; text-transform: upperc
 .signin-note { position: relative; z-index: 1; margin: 6px 0 0; color: var(--side-muted); max-width: 40ch; font-size: 15px; }
 .nochurch { max-width: 560px; display: grid; gap: 10px; }
 .nochurch p { margin: 0; }
+
+/* ---------- "Can't make it" ---------- */
+.ev.static.myev { grid-template-columns: 64px minmax(0, 1fr) auto; }
+.ev.static.myev.cant { border-style: dashed; }
+.ev.static.myev.cant h3 { color: var(--muted); }
+.myev-act { display: flex; justify-content: flex-end; }
+.cantnote { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin-top: 6px !important; }
+@media (max-width: 560px) { .ev.static.myev { grid-template-columns: 56px minmax(0, 1fr); } .myev-act { grid-column: 2; justify-content: flex-start; } }
+.cantflag { display: block; color: var(--warn-c); font-weight: 600; font-size: 13px; }
+.panel.alert { border-color: color-mix(in oklab, var(--warn-c) 45%, var(--line)); margin-bottom: 14px; }
+.cantrow .pill { justify-self: end; }
+.cantlist { display: grid; gap: 8px; margin-top: 14px; }
+.cantlist h3 { font-family: var(--display); font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: .09em; color: var(--warn-c); margin: 0; }
+.rrow.cant { grid-template-columns: minmax(0, 1fr) auto; border-style: dashed; }
+.rrow.cant .reason { display: block; color: var(--fg); font-style: italic; margin-top: 2px; }
+.rrow.cant .actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 560px) { .rrow.cant .actions { grid-column: 1 / -1; justify-content: flex-start; } }

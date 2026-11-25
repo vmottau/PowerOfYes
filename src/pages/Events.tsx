@@ -55,7 +55,9 @@ export function Events() {
 
 function EventRow({ ev, asg }: { ev: ChurchEvent; asg: Assignment[] }) {
   const { ministries } = useAppState();
-  const rs = asg.filter((a) => a.event_id === ev.id);
+  const all = asg.filter((a) => a.event_id === ev.id);
+  const rs = all.filter((a) => a.status !== "cant_make_it");
+  const cant = all.length - rs.length;
   const att = rs.filter((a) => a.status === "attended").length;
   const past = isPast(ev.date);
   const d = dateParts(ev.date);
@@ -68,7 +70,7 @@ function EventRow({ ev, asg }: { ev: ChurchEvent; asg: Assignment[] }) {
         <p>{[ev.time, ev.place, area?.label].filter(Boolean).join(" · ") || " "}</p>
       </div>
       <div className="counts">
-        {past ? <><b>{att}/{rs.length}</b> attended</> : <><b>{ev.needed ? `${rs.length}/${ev.needed}` : rs.length}</b> assigned</>}
+        {past ? <><b>{att}/{rs.length}</b> attended</> : <><b>{ev.needed ? `${rs.length}/${ev.needed}` : rs.length}</b> assigned{cant > 0 && <span className="cantflag">{cant} can't make it</span>}</>}
       </div>
     </Link>
   );

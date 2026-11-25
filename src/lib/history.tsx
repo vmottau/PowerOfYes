@@ -14,7 +14,7 @@ export function historyByVolunteer(assignments: Assignment[], events: ChurchEven
     const h = out.get(a.volunteer_id) ?? { attended: 0, missed: 0, upcoming: 0 };
     if (a.status === "attended") h.attended++;
     else if (a.status === "missed") h.missed++;
-    else if (!isPast(ev.date)) h.upcoming++;
+    else if (a.status === "assigned" && !isPast(ev.date)) h.upcoming++;
     out.set(a.volunteer_id, h);
   }
   return out;

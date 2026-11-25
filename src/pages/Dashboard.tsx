@@ -21,7 +21,13 @@ export function Dashboard() {
   const today = todayISO();
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString();
   const upcoming = events.filter((e) => !isPast(e.date)).sort((a, b) => (a.date ?? "9999").localeCompare(b.date ?? "9999"));
-  const rosterSize = (id: string) => asg.filter((a) => a.event_id === id).length;
+  const rosterSize = (id: string) => asg.filter((a) => a.event_id === id && a.status !== "cant_make_it").length;
+  const evById = new Map(events.map((e) => [e.id, e]));
+  const volById = new Map(vols.map((v) => [v.id, v]));
+  const cantGo = asg
+    .filter((a) => a.status === "cant_make_it" && evById.has(a.event_id) && volById.has(a.volunteer_id) && !isPast(evById.get(a.event_id)!.date))
+    .map((a) => ({ a, e: evById.get(a.event_id)!, v: volById.get(a.volunteer_id)! }))
+    .sort((x, y) => (x.e.date ?? "9999").localeCompare(y.e.date ?? "9999"));
   const needPeople = upcoming.filter((e) => e.needed && rosterSize(e.id) < e.needed);
   const dueFus = fus.filter((f) => !f.done && (!f.due || f.due <= today)).sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999"));
   const newVols = vols.filter((v) => v.created_at >= monthAgo).sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -36,6 +42,22 @@ export function Dashboard() {
         <Link to="/followups" className={"tile" + (dueFus.length ? " attention" : "")}><b>{dueFus.length}</b><span>Follow-ups due</span></Link>
         <Link to="/events" className="tile"><b>{upcoming.length}</b><span>Upcoming events</span></Link>
       </div>
+
+      {cantGo.length > 0 && (
+        <section className="panel alert" aria-labelledby="cant-title">
+          <div className="panelhead"><h2 id="cant-title">Can't make it</h2><span className="muted">Find someone to fill these spots</span></div>
+          {cantGo.map(({ a, e, v }) => {
+            const d = dateParts(e.date);
+            return (
+              <Link key={a.id} to={`/events/${e.id}`} className="mini cantrow">
+                <div className="date"><small>{d.mon}</small><b>{d.day}</b></div>
+                <div className="minw0"><b>{v.name}</b><span>{e.name}{a.cant_reason ? ` · “${a.cant_reason}”` : ""}</span></div>
+                <span className="pill s-cant_make_it">Can't make it</span>
+              </Link>
+            );
+          })}
+        </section>
+      )}
 
       <div className="dashgrid">
         <section className="panel">

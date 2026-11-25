@@ -1,5 +1,5 @@
 import { useApi } from "../api";
-import { useAppState } from "../App";
+import { signOut, useAppState } from "../App";
 import { Logo } from "../lib/branding";
 
 /** Shown to someone signed in who isn't part of any church yet. People join a church only through its link or an invite. */
@@ -10,7 +10,7 @@ export function ChooseChurch({ error }: { error?: string | null }) {
     <div className="shell shell-simple">
       <header className="mobilebar">
         <div className="brandrow"><Logo size={32} /><span className="apptitle">Volunteer sign-up</span></div>
-        <button className="btn small" type="button" onClick={() => void api.signOut()}>Sign out</button>
+        <button className="btn small" type="button" onClick={() => signOut(api)}>Sign out</button>
       </header>
       <main className="content">
         <header className="pagehead"><div className="minw0"><h1>Open your church's link</h1></div></header>

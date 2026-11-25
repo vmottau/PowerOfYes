@@ -96,6 +96,12 @@ export function App() {
   );
 }
 
+/** Signs out and forgets the page they were on, so the next person to sign in starts on their own home page. */
+export function signOut(api: { signOut(): Promise<void> }) {
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+  void api.signOut();
+}
+
 function Shell() {
   const api = useApi();
   const { branding } = useBranding();
@@ -118,7 +124,7 @@ function Shell() {
     ...(staff ? [{ to: "/manage", label: "Manage", icon: "settings" }] : []),
     ...(session.isPlatformAdmin ? [{ to: "/churches", label: "All churches", icon: "church" }] : []),
   ];
-  const home = staff ? "/home" : church ? "/me" : "/churches";
+  const home = session.isPlatformAdmin ? "/churches" : staff ? "/home" : church ? "/me" : "/churches";
 
 
   return (
@@ -136,7 +142,7 @@ function Shell() {
             <Icon name={menuOpen ? "x" : "menu"} />
           </button>
         ) : (
-          <div className="mobileright"><button className="iconbtn" type="button" aria-label="Sign out" onClick={() => void api.signOut()}><Icon name="logout" /></button></div>
+          <div className="mobileright"><button className="iconbtn" type="button" aria-label="Sign out" onClick={() => signOut(api)}><Icon name="logout" /></button></div>
         )}
       </header>
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
@@ -155,7 +161,7 @@ function Shell() {
             <div className="useremail">{session.email}</div>
             <div className="userrole">{session.isPlatformAdmin ? "Platform owner" : role === "admin" ? "Church admin" : role === "coordinator" ? "Coordinator" : "Volunteer"}</div>
           </div>
-          <button className="iconbtn" type="button" aria-label="Sign out" title="Sign out" onClick={() => void api.signOut()}><Icon name="logout" /></button>
+          <button className="iconbtn" type="button" aria-label="Sign out" title="Sign out" onClick={() => signOut(api)}><Icon name="logout" /></button>
         </div>
       </aside>
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}

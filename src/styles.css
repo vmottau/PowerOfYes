@@ -453,3 +453,13 @@ dialog h2 { font-family: var(--display); font-size: 28px; text-transform: upperc
   .printsheet .blankrow td { height: 20pt; }
   .printsheet footer { margin-top: 10pt; font-size: 9pt; color: #555; }
 }
+
+/* Open sign-up */
+.signupopt .inline { text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--fg); }
+.hint { margin: 0; color: var(--muted); font-size: 14px; }
+.pill.opensu { background: var(--good-soft); color: var(--good); display: inline-block; margin-top: 4px; }
+.meta .pill.opensu { margin-top: 0; }
+.ev .spots { font-weight: 600; color: var(--good); }
+.ev.openev.full .spots { color: var(--muted); }
+.ev.openev { border-color: color-mix(in oklab, var(--good) 35%, var(--line)); }
+.rrow .who b .badge { display: inline-block; margin-left: 8px; color: var(--good); font-size: 12px; }

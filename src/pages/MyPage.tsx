@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useApi, type MyAssignment, type VolunteerInput } from "../api";
+import { useApi, type MyAssignment, type OpenEvent, type VolunteerInput } from "../api";
 import { PageHeader, useAppState } from "../App";
 import { VolunteerFields, validateVolunteer } from "../components/VolunteerFields";
 import { Modal } from "../components/Modal";
@@ -14,6 +14,8 @@ export function MyPage() {
   const { session, ministries } = useAppState();
   const me = useLoad(() => api.getMyVolunteer(), [api]);
   const mine = useLoad(() => api.listMyAssignments(), [api]);
+  const open = useLoad(() => api.listOpenEvents(), [api]);
+  const [signing, setSigning] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<VolunteerInput>({ name: "", phone: "", email: session.email, ministries: [] });
   const [warn, setWarn] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function MyPage() {
     try {
       await api.saveMyVolunteer({ ...form, name: form.name.trim(), email: form.email.trim() });
       await me.reload();
+      void open.reload();
       setEditing(false);
       toast(me.data ? "Your card is updated" : "Thank you for saying yes! Your card is saved.");
     } catch (err) { setWarn(errText(err)); } finally { setBusy(false); }
@@ -42,6 +45,13 @@ export function MyPage() {
     catch (err) { toast(errText(err)); }
   }
 
+  async function signUp(ev: OpenEvent) {
+    setSigning(ev.id);
+    try { await api.signUpForEvent(ev.id); toast(`You're signed up for ${ev.name}. Thank you!`); }
+    catch (err) { toast(errText(err)); }
+    finally { setSigning(null); await Promise.all([mine.reload(), open.reload()]); }
+  }
+
   if (me.loading && !me.data) return <p className="muted">Loading your card…</p>;
   if (me.error) return <div className="notice">{me.error}</div>;
 
@@ -50,6 +60,7 @@ export function MyPage() {
   const items = (mine.data ?? []).slice().sort((a, b) => (a.event.date ?? "9999").localeCompare(b.event.date ?? "9999"));
   const upcoming = items.filter((x) => !isPast(x.event.date));
   const past = items.filter((x) => isPast(x.event.date)).reverse();
+  const openList = (open.data ?? []).filter((x) => !isPast(x.date));
   const served = items.filter((x) => x.assignment.status === "attended").length;
 
   return (
@@ -83,6 +94,35 @@ export function MyPage() {
         </section>
       )}
 
+      {me.data && !!openList.length && (
+        <section className="sect" aria-labelledby="open-title">
+          <div className="evhead"><h2 id="open-title">Open spots you can sign up for</h2><span className="muted">Picked from the areas on your card</span></div>
+          <div className="list">
+            {openList.map((ev) => {
+              const d = dateParts(ev.date);
+              const left = ev.needed == null ? null : Math.max(0, ev.needed - ev.taken);
+              return (
+                <div key={ev.id} className={"ev static myev openev" + (left === 0 ? " full" : "")}>
+                  <div className="date"><small>{d.mon}</small><b>{d.day}</b></div>
+                  <div className="minw0">
+                    <h3>{ev.name}</h3>
+                    <p>{[longDate(ev.date), ev.time, ev.place, ev.area ? label(ev.area) : ""].filter(Boolean).join(" · ")}</p>
+                    {ev.notes && <p>{ev.notes}</p>}
+                    <p className="spots">{left === null ? (ev.taken ? `${ev.taken} signed up so far` : "Be the first to sign up")
+                      : left === 0 ? "All spots are taken" : `${left} of ${ev.needed} ${ev.needed === 1 ? "spot" : "spots"} left`}</p>
+                  </div>
+                  <div className="myev-act">
+                    {left === 0
+                      ? <span className="pill paper">Full</span>
+                      : <button className="btn small primary" type="button" disabled={signing === ev.id} onClick={() => void signUp(ev)}>{signing === ev.id ? "Signing up…" : "Sign me up"}</button>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {me.data && (
         <section className="sect">
           <div className="evhead"><h2>Where you're scheduled</h2>{served > 0 && <span className="muted">You've served {served} {served === 1 ? "time" : "times"}. Thank you!</span>}</div>
@@ -109,7 +149,7 @@ export function MyPage() {
               })}
             </div>
           ) : (
-            <div className="empty small"><p>You're not scheduled for anything yet. A coordinator will reach out when something comes up that matches your interests.</p></div>
+            <div className="empty small"><p>You're not scheduled for anything yet. A coordinator will reach out when something comes up that matches your interests, and open spots you can sign up for will show up on this page.</p></div>
           )}
           {past.length > 0 && (
             <>

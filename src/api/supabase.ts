@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   Api, Assignment, AttendanceStatus, Branding, Church, ChurchEvent, EventInput, Followup, FollowupInput, Invite,
-  Membership, Ministry, MyAssignment, Profile, Role, Session, Volunteer, VolunteerInput,
+  Membership, Ministry, MyAssignment, OpenEvent, Profile, Role, Session, Volunteer, VolunteerInput,
 } from "./types";
 import { pickCurrentChurch, rememberChurch } from "./churchChoice";
 
@@ -134,7 +134,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
       if (!user) return [];
       const me = check(await sb.from("volunteers").select("id").eq("church_id", cid()).eq("user_id", user.id).maybeSingle()) as { id: string } | null;
       if (!me) return [];
-      const rows = check(await sb.from("assignments").select("id, event_id, volunteer_id, status, cant_reason, cant_at, events(*)").eq("volunteer_id", me.id)) as unknown as
+      const rows = check(await sb.from("assignments").select("id, event_id, volunteer_id, status, cant_reason, cant_at, self_signup, events(*)").eq("volunteer_id", me.id)) as unknown as
         (Assignment & { events: ChurchEvent | null })[];
       return rows.filter((r) => r.events).map(({ events, ...a }) => ({ assignment: a, event: events! }));
     },
@@ -145,6 +145,14 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
 
     async canMakeItAfterAll(assignmentId) {
       check(await sb.rpc("can_make_it_after_all", { assignment: assignmentId }));
+    },
+
+    async listOpenEvents() {
+      return (check(await sb.rpc("open_events", { c: cid() })) ?? []) as OpenEvent[];
+    },
+
+    async signUpForEvent(eventId) {
+      check(await sb.rpc("sign_up_for_event", { event: eventId }));
     },
 
     async listVolunteers() {
@@ -182,7 +190,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listAssignments() {
-      return await allRows((a, b) => sb.from("assignments").select("id, event_id, volunteer_id, status, cant_reason, cant_at").eq("church_id", cid()).order("id").range(a, b)) as Assignment[];
+      return await allRows((a, b) => sb.from("assignments").select("id, event_id, volunteer_id, status, cant_reason, cant_at, self_signup").eq("church_id", cid()).order("id").range(a, b)) as Assignment[];
     },
 
     async assign(eventId, volunteerIds) {

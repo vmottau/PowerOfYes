@@ -154,6 +154,18 @@ await shot("4c-dashboard-cant");
 await p.click(".panel.alert .cantrow:has-text('Newbie Volunteer')");
 await p.waitForSelector(".cantlist .rrow:has-text('Newbie Volunteer')");
 ok(!(await p.isVisible(".roster .rrow:has-text('Newbie Volunteer')")), "their spot is freed on the roster");
+{
+  const { body } = await download(() => p.click("button:has-text('Download roster')"));
+  ok(!body.toString("utf8").includes("Newbie Volunteer"), "downloaded roster excludes volunteers who can't make it");
+  ok(!(await p.locator(".printsheet tbody").textContent()).includes("Newbie Volunteer"), "printed roster excludes volunteers who can't make it");
+  const rosterCount = (await p.locator(".tally b").first().textContent()).split("/")[0];
+  await go("Manage");
+  await p.click("button[role=tab]:has-text('Backup')");
+  const backup = (await download(() => p.click("#backup-dl"))).body.toString("utf8");
+  const eventRow = backup.split("\r\n").find((line) => line.includes("Example: Fall pierogi batch") && line.includes("Parish hall kitchen"));
+  ok(eventRow?.includes(`,6,${rosterCount},`), "backup event roster count excludes volunteers who can't make it");
+  ok(backup.includes("Can't make it") && backup.includes("Out of town that weekend") && backup.includes("Can't make it at"), "backup preserves availability status and note");
+}
 await signOut();
 await signIn("newbie@example.org");
 await p.waitForSelector("text=Example: Fall pierogi batch");

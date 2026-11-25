@@ -201,7 +201,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listFollowups() {
-      return await allRows((a, b) => sb.from("followups").select("id, volunteer_id, note, due, assigned_to, done, done_at, created_at").eq("church_id", cid()).order("due", { ascending: true, nullsFirst: false }).order("id").range(a, b)) as Followup[];
+      return await allRows((a, b) => sb.from("followups").select("id, volunteer_id, note, due, assigned_to, done, done_at, created_at, assignment_id").eq("church_id", cid()).order("due", { ascending: true, nullsFirst: false }).order("id").range(a, b)) as Followup[];
     },
 
     async saveFollowup(input: FollowupInput, id?: string) {

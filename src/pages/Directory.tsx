@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useApi, type Volunteer, type VolunteerInput } from "../api";
 import { PageHeader, useAppState } from "../App";
 import { FollowupForm } from "../components/FollowupForm";
+import { ImportDialog } from "../components/ImportDialog";
 import { Modal } from "../components/Modal";
 import { VolunteerFields, validateVolunteer } from "../components/VolunteerFields";
 import { EventForm } from "../components/EventForm";
@@ -32,6 +33,7 @@ export function Directory() {
   const [editing, setEditing] = useState<Volunteer | "new" | null>(null);
   const [newEventFor, setNewEventFor] = useState<string[] | null>(null);
   const [followFor, setFollowFor] = useState<Volunteer | null>(null);
+  const [importing, setImporting] = useState(false);
 
   const vols = data.data?.vols ?? [];
   const events = data.data?.events ?? [];
@@ -95,6 +97,7 @@ export function Directory() {
   return (
     <div className={picked.size ? "has-selbar" : undefined}>
       <PageHeader title="Volunteers" sub={data.data ? `${plural(vols.length, "volunteer")} · ${vols.filter((v) => !v.contacted).length} not contacted yet` : "Loading…"}>
+        <button className="btn" type="button" onClick={() => setImporting(true)}>Import spreadsheet</button>
         <button className="btn primary" type="button" onClick={() => setEditing("new")}>+ Add a paper card</button>
       </PageHeader>
 
@@ -152,8 +155,11 @@ export function Directory() {
         {data.data && !vols.length && (
           <div className="empty">
             <h3>No volunteers yet</h3>
-            <p>Volunteers who sign up online appear here automatically. Type in returned paper cards with “Add a paper card”.</p>
-            <button className="btn primary" type="button" onClick={() => setEditing("new")}>+ Add a paper card</button>
+            <p>Volunteers who sign up online appear here automatically. Type in returned paper cards with “Add a paper card”, or bring in a whole stack at once with “Import spreadsheet”.</p>
+            <div className="emptyactions">
+              <button className="btn primary" type="button" onClick={() => setEditing("new")}>+ Add a paper card</button>
+              <button className="btn" type="button" onClick={() => setImporting(true)}>Import spreadsheet</button>
+            </div>
           </div>
         )}
         {data.data && vols.length > 0 && !shown.length && (
@@ -221,6 +227,13 @@ export function Directory() {
             onDone={async (msg) => { setEditing(null); toast(msg); await data.reload(); }}
             onCancel={() => setEditing(null)}
           />
+        )}
+      </Modal>
+
+      <Modal open={importing} onClose={() => setImporting(false)} labelledBy="imp-dlg-title">
+        {importing && data.data && (
+          <ImportDialog volunteers={vols} onClose={() => setImporting(false)}
+            onImported={(msg) => { if (msg) toast(msg); void data.reload(); }} />
         )}
       </Modal>
 

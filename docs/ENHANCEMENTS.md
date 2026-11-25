@@ -32,7 +32,7 @@ Make it easier to run month after month.
 | 9 | **Volunteer availability** | Let volunteers say which days/times they can serve ("weekday mornings", "not in July"), and show that when coordinators pick people. Cuts down on asking people who can't come. | Medium | M |
 | 10 | **Reports: who served, how often** | Attendance by ministry and by season, most active volunteers, people who signed up but never served (great follow-up list). The data is already there from attendance marks. | Medium | M |
 | 11 | **Service hours** | Add hours to events and total them per volunteer, with a printable certificate. Confirmation students, NHS and scouts need this. | Medium | M |
-| 12 | **Bulk import of paper cards** | Typing cards one at a time is slow for the first big batch. Upload a spreadsheet (the parish types the cards into Excel once) and the app adds everyone, skipping duplicate emails. | High (once) | M |
+| 12 | **Bulk import of paper cards** (done) | Typing cards one at a time is slow for the first big batch. Upload a spreadsheet (the parish types the cards into Excel once) and the app adds everyone, skipping duplicate emails. | High (once) | M |
 | 13 | **Duplicate detection** | When someone types a paper card that matches an existing name or phone, warn before saving and offer to merge. Today only matching emails are linked. | Medium | S |
 | 14 | **Text-message reminders (SMS)** | Many older parishioners read texts but not email. Same as #2 over SMS via Twilio. Costs a little per message, and needs opt-in consent. | High | L |
 

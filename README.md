@@ -4,6 +4,7 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 
 - **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled. If they can't make an event, they press **Can't make it** on *My card*: their spot opens up, and coordinators see it on their home page and get a follow-up to find someone else.
 - **Coordinators** see every volunteer by area of interest, type in paper cards, create events and projects, assign people, and mark who showed up.
+- **Coordinators** can bring in a whole stack of paper cards at once: type them into a spreadsheet (there's a blank template), upload it under **Volunteers → Import spreadsheet**, and check a preview that flags missing names, broken emails and people who are already listed before anything is saved.
 - **Coordinators** can download any filtered volunteer list or event roster as a spreadsheet, print a sign-in sheet for an event or a list for a ministry, and download a full backup under **Manage → Backup**.
 - **Coordinators** also keep a follow-up to-do list ("Call Ann about the pierogi batch, due Friday") and maintain the list of ministries and events volunteers can pick from.
 - **Church admins** do everything coordinators do, invite coordinators by email, and set the church's look.
@@ -30,6 +31,7 @@ Until Supabase is connected, the site runs in **demo mode**: sample data that st
 | `supabase/schema.sql` | Database tables, the three roles, and the rules for who can see and change what |
 | `supabase/tests/` | Automated checks of those rules |
 | `e2e/demo-flow.mjs` | Automated walkthrough of every role in demo mode |
+| `e2e/import-flow.mjs` | Automated check of the spreadsheet import in demo mode |
 | `.github/workflows/` | Publishes the site to GitHub Pages and runs the checks on every change |
 
 Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts the site.
@@ -64,6 +66,14 @@ To add another church later, repeat step 2.
 Supabase's built-in email sender only allows a few sign-in emails per hour. That's fine for testing. Before announcing the site, connect a real email sender under **Authentication → Emails → SMTP Settings** (the parish's email provider, or a free service such as Brevo or Resend). You can also edit the sign-in email's wording on the same page.
 
 ## Paper cards and online sign-ups
+To add many cards at once, open **Volunteers → Import spreadsheet** and download the blank template. Type one card per row (only the name is required), then upload the file as Excel (.xlsx) or CSV. From Google Sheets, use **File → Download → Microsoft Excel**. The spreadsheet from **Download spreadsheet** can also be edited and uploaded again.
+
+Before saving, every row is shown with what will happen to it:
+- Someone already in the list (same name, or same phone or email) is set to **update the existing card**. That only fills in a missing phone or email, adds new interests and adds notes. It never erases anything.
+- The same person twice in the file is skipped the second time.
+- Rows with no name or a broken email can't be added. After saving, **Download rows that weren't imported** gives a spreadsheet of them with the reason, to fix and upload again.
+- Interests that aren't on the church's list are kept in the staff notes, so nothing written on a card is lost.
+
 Staff can keep typing in paper cards. When someone with a paper card later signs in and joins that church using the **same email address**, the app links them to their existing card automatically, along with their event history.
 
 ## Working on the code
@@ -85,6 +95,7 @@ psql -f supabase/tests/auth_stub.sql && psql -f supabase/schema.sql && psql -f s
 # End-to-end walkthrough of every role in demo mode
 VITE_DEMO=1 npm run build && npx vite preview --port 4173 &
 npm run test:e2e
+node e2e/import-flow.mjs
 ```
 
 ## Ideas for later

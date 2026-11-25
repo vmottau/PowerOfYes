@@ -9,6 +9,8 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 - **Church admins** do everything coordinators do, invite coordinators by email, and set the church's look.
 - **The platform owner** adds churches to the site and names each church's first admin.
 
+New to the app? Read the [user guide](docs/USER_GUIDE.md): it walks through every page by role and starts with how to try demo mode safely. Inside the app, **Help** in the menu has short answers for each role.
+
 ## Many churches, one site
 One copy of the site serves any number of churches. Each church's volunteers, events and follow-ups are kept separate by the database's access rules, so a coordinator at one church never sees another church's people.
 

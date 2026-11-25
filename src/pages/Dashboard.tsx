@@ -5,6 +5,7 @@ import { dateParts, isPast, longDate, todayISO } from "../lib/format";
 import { errText, useLoad, useToast } from "../lib/hooks";
 import { useBranding } from "../lib/branding";
 import { FollowupRow } from "./Followups";
+import { Tip } from "../components/Tip";
 
 export function Dashboard() {
   const api = useApi();
@@ -61,7 +62,7 @@ export function Dashboard() {
 
       <div className="dashgrid">
         <section className="panel">
-          <div className="panelhead"><h2>Still need volunteers</h2><Link to="/events">All events</Link></div>
+          <div className="panelhead"><h2>Still need volunteers <Tip>Upcoming events with fewer people than their “Volunteers needed” number. Click one to add people.</Tip></h2><Link to="/events">All events</Link></div>
           {needPeople.length ? needPeople.slice(0, 5).map((e) => {
             const d = dateParts(e.date), have = rosterSize(e.id);
             return (

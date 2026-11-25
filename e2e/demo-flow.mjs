@@ -254,9 +254,39 @@ await p.waitForSelector(".tile:has-text('Volunteers')");
 ok(await p.isVisible(".orgname:has-text(\"St. Mary's Parish\")"), "the new church's invited admin runs it on first sign-in");
 ok(await p.isVisible(".tile:has-text('Volunteers') b:has-text('0')"), "a new church starts empty");
 
+// Help: welcome box, Help page, "?" tips
+ok(await p.isVisible(".welcome:has-text('You run the app for your church')"), "a new admin sees the welcome box on their home page");
+await p.click(".welcome button:has-text('Got it')");
+ok(!(await p.isVisible(".welcome")), "Got it hides the welcome box");
+await p.reload(); await p.waitForSelector(".tile:has-text('Volunteers')");
+ok(!(await p.isVisible(".welcome")), "the welcome box stays hidden after a reload");
+await go("Help");
+await p.waitForSelector("h1:has-text('Help')");
+await p.click("summary:has-text('How do I add a coordinator?')");
+ok(await p.isVisible(".faqa:has-text('Invite someone')"), "Help answers open with a click");
+await p.click("[role=tab]:has-text('Volunteers')");
+ok(await p.isVisible("summary:has-text(\"I can't make it\")"), "staff can read the volunteers' answers too");
+await p.click("[role=tab]:has-text('Church admins')");
+await p.click("button:has-text('Show the welcome box again')");
+await go("Home");
+ok(await p.waitForSelector(".welcome", { timeout: 3000 }).then(() => true, () => false), "the welcome box can be brought back from Help");
+await p.click(".panelhead .tipbtn");
+ok(await p.isVisible(".tipbody:has-text('Volunteers needed')"), "a ? tip explains the panel");
+await p.keyboard.press("Escape");
+ok(!(await p.isVisible(".tipbody")), "Escape closes the tip");
+await shot("5b-help");
+await signOut();
+await signIn("helpme@example.org", "st-example");
+ok(await p.waitForSelector(".welcome:has-text(\"Here's how this works\")", { timeout: 3000 }).then(() => true, () => false), "a volunteer sees their own welcome");
+await p.click(".mobilebar a[aria-label='Help']");
+await p.waitForSelector("h1:has-text('Help')");
+ok(!(await p.isVisible("[role=tab]")), "volunteers see only their own answers");
+await signOut();
+await signIn("office@stmarys.example");
+
 // phone width: no sideways scroll
 await p.setViewportSize({ width: 390, height: 800 });
-for (const path of ["#/home", "#/volunteers", "#/events", "#/followups", "#/manage", "#/me"]) {
+for (const path of ["#/home", "#/volunteers", "#/events", "#/followups", "#/manage", "#/me", "#/help"]) {
   await p.goto(base + path); await p.waitForTimeout(250);
   const w = await p.evaluate(() => document.documentElement.scrollWidth);
   ok(w <= 390, `no sideways scroll on ${path} at phone width (${w})`);

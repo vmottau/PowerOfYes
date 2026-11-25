@@ -63,9 +63,12 @@ update churches set reminder_days = 2 where slug = 'st-mail';
 -- sending: two at a time, then results come back
 select pg_temp.expect(send_queued_emails() = 2, 'sends two per run');
 select pg_temp.expect((select count(*) from email_outbox where status = 'sending') = 2, 'they are marked as sending');
-select pg_temp.expect((select body->>'from' from net.sent order by id limit 1) = '"St. Mail''s Parish" <volunteers@example.org>', 'from shows the church name');
-select pg_temp.expect((select headers->>'Authorization' from net.sent order by id limit 1) = 'Bearer re_test_key', 'uses the saved key');
-select pg_temp.expect((select bool_and((s.body ? 'reply_to') = (o.reply_to <> '') and coalesce(s.body->>'reply_to', '') = o.reply_to)
+select pg_temp.expect((select bool_and(url = 'https://api.brevo.com/v3/smtp/email') from net.sent), 'a Brevo key sends through Brevo');
+select pg_temp.expect((select body->'sender' from net.sent order by id limit 1) = '{"name": "St. Mail''s Parish", "email": "volunteers@example.org"}', 'sender shows the church name');
+select pg_temp.expect((select headers->>'api-key' from net.sent order by id limit 1) = 'xkeysib-test-key', 'uses the saved key');
+select pg_temp.expect((select bool_and(s.body->'to' = jsonb_build_array(jsonb_build_object('email', o.to_email)) and s.body->>'textContent' = o.body)
+  from net.sent s join email_outbox o on o.request_id = s.id), 'Brevo gets the address and text');
+select pg_temp.expect((select bool_and((s.body ? 'replyTo') = (o.reply_to <> '') and coalesce(s.body->'replyTo'->>'email', '') = o.reply_to)
   from net.sent s join email_outbox o on o.request_id = s.id), 'reply-to is passed along when there is one');
 insert into net._http_response (id, status_code, content) select id, 200, '{"id":"x"}' from net.sent order by id limit 1;
 insert into net._http_response (id, status_code, content) select id, 429, 'slow down' from net.sent order by id desc limit 1;
@@ -84,6 +87,17 @@ do $$ declare i int; begin
 end $$;
 select send_queued_emails();
 select pg_temp.expect((select count(*) from email_outbox where status = 'failed' and error like '422:%bad address%') >= 1, 'repeatedly rejected emails end up failed, with the reason');
+
+-- a Resend key (for a church with its own domain) sends through Resend instead
+update vault.secrets set secret = 're_test_key' where name = 'email_api_key';
+update email_outbox set status = 'waiting' where status in ('sending', 'failed');
+delete from net.sent;
+select send_queued_emails();
+select pg_temp.expect((select bool_and(url = 'https://api.resend.com/emails') from net.sent) and (select count(*) from net.sent) = 2, 'a Resend key sends through Resend');
+select pg_temp.expect((select body->>'from' from net.sent order by id limit 1) = '"St. Mail''s Parish" <volunteers@example.org>', 'Resend from shows the church name');
+select pg_temp.expect((select headers->>'Authorization' from net.sent order by id limit 1) = 'Bearer re_test_key', 'Resend uses the saved key');
+select pg_temp.expect((select bool_and((s.body ? 'reply_to') = (o.reply_to <> '') and coalesce(s.body->>'reply_to', '') = o.reply_to)
+  from net.sent s join email_outbox o on o.request_id = s.id), 'Resend gets the reply-to');
 
 -- a reminder for someone taken off the event is not sent
 delete from email_outbox; delete from net.sent;

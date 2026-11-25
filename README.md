@@ -65,23 +65,25 @@ To add another church later, repeat step 2.
 ### 4. Before inviting the whole parish: email sending
 Supabase's built-in email sender only allows a few sign-in emails per hour. That's fine for testing. Before announcing the site, connect a real email sender under **Authentication → Emails → SMTP Settings** (the parish's email provider, or a free service such as Brevo or Resend). You can also edit the sign-in email's wording on the same page.
 
-If you set up Resend for reminders (step 5), you can use the same account here: **Host** `smtp.resend.com`, **Port** `465`, **Username** `resend`, **Password** your Resend API key, and a **Sender email** at your verified domain.
+If you set up Brevo for reminders (step 5), you can use the same account here. In Brevo, open **SMTP & API → SMTP**, and copy the **SMTP server** (`smtp-relay.brevo.com`), **Port** (`587`), **Login**, and an **SMTP key** (a different key from the API key). Use your confirmed sender address as the **Sender email**.
 
 ### 5. Email reminders and "Can't make it" alerts
-The site itself can't send email (GitHub Pages only shows web pages), so the database does it: every morning it writes the reminders, and every minute it hands whatever is waiting to **Resend**, a free email-sending service. You only set this up once.
+The site itself can't send email (GitHub Pages only shows web pages), so the database does it: every morning it writes the reminders, and every minute it hands whatever is waiting to **Brevo**, a free email-sending service. You only set this up once, and you don't need a church web domain.
 
 1. **Run the newest `schema.sql`** again (SQL Editor, as in step 1). It adds the email tables.
-2. **Make a free Resend account** at [resend.com](https://resend.com).
-3. **Add your church's web domain** in Resend under **Domains → Add domain** (for example `stmarys.org`). Resend shows a few lines (DNS records) that whoever looks after the church's website or domain needs to add. Once Resend says **Verified**, emails can come from any address at that domain, like `volunteers@stmarys.org`. Without a verified domain, Resend only delivers to your own email address, which is fine for a first test.
-4. **Make a key** in Resend under **API Keys → Create API key** (Sending access is enough). Copy it; it starts with `re_`.
-5. **Turn sending on** in Supabase: open **SQL Editor → New query** and paste everything from [`supabase/email-setup.sql`](supabase/email-setup.sql). At the very top, replace `PASTE-YOUR-RESEND-KEY-HERE` with your key and `volunteers@your-church.org` with the address emails should come from. Click **Run**. The key is stored in Supabase's encrypted Vault.
+2. **Make a free Brevo account** at [brevo.com](https://www.brevo.com). Pick the free plan.
+3. **Add the address emails come from.** In Brevo, open **Senders, Domains & Dedicated IPs → Senders → Add sender**. Enter a name (like the parish's name) and the email address, such as the parish office's address. Brevo emails that address a code to confirm it's yours. Volunteers' replies go to the coordinator, not to this address, but someone should still check it now and then.
+4. **Make a key** in Brevo under **SMTP & API → API Keys → Generate a new API key**. Copy it; it starts with `xkeysib-`.
+5. **Turn sending on** in Supabase: open **SQL Editor → New query** and paste everything from [`supabase/email-setup.sql`](supabase/email-setup.sql). At the very top, replace `PASTE-YOUR-KEY-HERE` with your key and `volunteers@your-church.org` with the sender address from step 3. Click **Run**. The key is stored in Supabase's encrypted Vault.
 6. **Check it works**: under **Manage → Emails** you can see each email and whether it was sent. To try it right away, have a volunteer press **Can't make it** (the coordinator's email goes out within a minute), or run `select public.queue_reminders();` in the SQL Editor to send today's reminders now.
 
 Good to know:
 - Reminders go out at **9 am Eastern** in winter and 10 am in summer (an hour earlier in Central time). To change the time, edit the `cron.schedule('volunteer-reminders', ...)` line at the bottom of `email-setup.sql` and run it again (times there are in UTC).
 - Volunteers whose card has no email address don't get reminders.
 - Replies to a reminder go to the coordinator who created the event. Replies to a "Can't make it" email go to the volunteer.
-- Resend's free plan sends up to **100 emails a day** (3,000 a month). Anything over the daily limit waits and goes out the next day.
+- Brevo's free plan sends up to **300 emails a day**. Anything over the daily limit waits and goes out the next day.
+- A parish office address delivers best. A personal Gmail, Yahoo or AOL address works, but some emails may land in spam folders, because those providers are strict about other services sending in their name.
+- **If the church gets its own web domain later** (like `stmarys.org`), you can switch to Resend, which is free for up to 100 emails a day: verify the domain at [resend.com](https://resend.com) under **Domains**, make an API key (it starts with `re_`), and run `email-setup.sql` again with that key and an address at the domain. The app tells the two kinds of keys apart on its own.
 - To stop reminders for a church, set them to **Off** under **Manage → Emails**. To stop every email from the site, run `select cron.unschedule('volunteer-emails-send');` in the SQL Editor (running `email-setup.sql` again turns it back on).
 
 ## Paper cards and online sign-ups
@@ -104,7 +106,7 @@ Checks (these also run automatically on GitHub):
 psql -f supabase/tests/auth_stub.sql && psql -f supabase/schema.sql && psql -f supabase/tests/rls_test.sql
 # Email reminders and alerts (with stand-ins for Supabase's pg_net, Vault and pg_cron)
 psql -f supabase/tests/email_stub.sql
-sed -e '/create extension/d' -e 's/PASTE-YOUR-RESEND-KEY-HERE/re_test_key/' -e 's/volunteers@your-church.org/volunteers@example.org/' \
+sed -e '/create extension/d' -e 's/PASTE-YOUR-KEY-HERE/xkeysib-test-key/' -e 's/volunteers@your-church.org/volunteers@example.org/' \
     -e "s#https://vmottau.github.io/PowerOfYes/'#https://example.org/app/'#" supabase/email-setup.sql | psql
 psql -f supabase/tests/email_test.sql
 

@@ -31,7 +31,7 @@ end $$;
 create extension if not exists pg_net with schema extensions;
 create extension if not exists pg_cron;
 
--- Sends what's waiting in the outbox, a couple at a time (Resend allows only a few emails per second),
+-- Sends what's waiting in the outbox (alerts first), a couple at a time (Resend allows only a few emails per second),
 -- and checks how the earlier ones went. Runs every minute.
 create or replace function public.send_queued_emails(batch int default 2) returns int
 language plpgsql security definer set search_path = public as $$
@@ -61,7 +61,7 @@ begin
     end if;
   end loop;
 
-  perform public.cancel_stale_reminders();
+  perform public.refresh_queued_emails();
 
   -- 2. Send the next few.
   select decrypted_secret into key from vault.decrypted_secrets where name = 'email_api_key';
@@ -69,7 +69,9 @@ begin
   if key is null or not public.email_ok(cfg.from_address) then return 0; end if;
   for r in
     select o.*, c.org_name from public.email_outbox o join public.churches c on c.id = o.church_id
-     where o.status = 'waiting' order by o.created_at limit batch for update of o skip locked
+     where o.status = 'waiting'
+     -- "can't make it" alerts go before the morning's reminders
+     order by o.kind = 'cant_make_it' desc, o.created_at limit batch for update of o skip locked
   loop
     if key like 're\_%' then
       -- Resend

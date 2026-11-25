@@ -132,6 +132,39 @@ reset role;
 select pg_temp.expect((select string_agg(to_email, ',') from email_outbox where kind = 'cant_make_it' and status = 'waiting') = 'admin-e@example.org', 'falls back to the church admins');
 select pg_temp.expect((select body from email_outbox where kind = 'cant_make_it' and status = 'waiting') not like '%They said%', 'no reason line when they gave none');
 
+-- unsent reminders pick up event changes
+delete from email_outbox; delete from net.sent;
+select queue_reminders();
+update events set place = 'Church basement' where name = 'Fish fry';
+select send_queued_emails(0);
+select pg_temp.expect((select bool_and(body like '%Where: Church basement%') from email_outbox where kind = 'reminder' and subject like '%Fish fry%'), 'waiting reminders get the event''s new place');
+-- turning reminders off stops the ones already waiting; turning them back on queues them again
+update churches set reminder_days = 0 where slug = 'st-mail';
+select send_queued_emails(0);
+select pg_temp.expect((select count(*) from email_outbox where kind = 'reminder' and status <> 'cancelled') = 0, 'turning reminders off cancels waiting ones');
+update churches set reminder_days = 2 where slug = 'st-mail';
+select pg_temp.expect(queue_reminders() = 2, 'turning them back on queues them again');
+select pg_temp.expect((select count(*) from email_outbox where kind = 'reminder' and status = 'waiting') = 2, 'and they are waiting to go out');
+-- "can't make it" alerts go before the reminders
+set role authenticated;
+select cant_make_it((select a.id from assignments a join events e on e.id = a.event_id where e.name = 'Fish fry' and a.volunteer_id = my_volunteer_id(a.church_id)), '');
+reset role;
+select send_queued_emails(1);
+select pg_temp.expect((select kind from email_outbox where status = 'sending') = 'cant_make_it', 'alerts are sent ahead of waiting reminders');
+-- an alert whose send failed isn't retried once they say they can make it after all
+insert into net._http_response (id, status_code, content) select request_id, 500, 'oops' from email_outbox where status = 'sending';
+set role authenticated;
+select can_make_it_after_all((select a.id from assignments a join events e on e.id = a.event_id where e.name = 'Fish fry' and a.volunteer_id = my_volunteer_id(a.church_id)));
+reset role;
+select send_queued_emails(0);
+select pg_temp.expect((select status from email_outbox where kind = 'cant_make_it' and request_id is not null) = 'cancelled', 'a failed alert is dropped once they can make it after all');
+-- a volunteer with only a phone number: the alert gives the number and doesn't promise replies reach them
+update assignments set status = 'cant_make_it', cant_at = now()
+ where volunteer_id = (select id from volunteers where name = 'Bob Nomail') and event_id = (select id from events where name = 'Fish fry');
+select pg_temp.expect((select body from email_outbox where subject like 'Bob Nomail%') like '%You can reach Bob at 555-0102.' || E'\n' || '%', 'alert gives the phone number');
+select pg_temp.expect((select body from email_outbox where subject like 'Bob Nomail%') not like '%Replying%', 'no promise that replies reach someone without an email');
+select pg_temp.expect((select body from email_outbox where subject like 'Cara Online%' order by created_at desc limit 1) like '%Replying to this email goes to them.%', 'with an email, replies do reach them');
+
 -- who can see the outbox
 set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000e2');

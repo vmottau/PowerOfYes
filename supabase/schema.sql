@@ -735,6 +735,8 @@ create table if not exists public.email_outbox (
   created_at timestamptz not null default now(),
   sent_at timestamptz
 );
+-- for a "can't make it" alert: which time they pressed it (pressing it again later is a new alert)
+alter table public.email_outbox add column if not exists cant_at timestamptz;
 create index if not exists email_outbox_status_idx on public.email_outbox (status, created_at);
 create index if not exists email_outbox_church_idx on public.email_outbox (church_id, created_at desc);
 
@@ -764,14 +766,13 @@ language sql stable security definer set search_path = public as $$
                         'https://vmottau.github.io/PowerOfYes/'), '/') || '/#/c/' || c.slug
 $$;
 
--- Queues a reminder for every volunteer on an event coming up within their church's reminder window
--- (by default the next 2 days). Runs once a day. Someone assigned late still gets one on the next run.
-create or replace function public.queue_reminders() returns int
-language plpgsql security definer set search_path = public as $$
-declare n int;
-begin
-  insert into public.email_outbox (church_id, kind, assignment_id, dedupe_key, to_email, reply_to, subject, body)
-  select a.church_id, 'reminder', a.id,
+-- Every reminder that should go out (or still go out) right now, with its current wording.
+-- An event counts while it's today or later; queue_reminders() picks the ones inside each church's window.
+create or replace function public.reminder_candidates()
+returns table (church_id uuid, assignment_id uuid, dedupe_key text, to_email text, reply_to text,
+               subject text, body text, event_date date, reminder_days int)
+language sql stable security definer set search_path = public as $$
+  select a.church_id, a.id,
          -- a new date gets a new reminder
          'reminder:' || a.id || ':' || ev.date,
          lower(trim(v.email)),
@@ -783,15 +784,32 @@ begin
            || public.email_event_lines(ev) || E'\n\n'
            || E'If you can''t make it, please let us know so we can find someone else. Open your card and press "Can''t make it":\n'
            || public.email_church_link(c) || E'\n\n'
-           || 'See you there,' || E'\n' || c.org_name
+           || 'See you there,' || E'\n' || c.org_name,
+         ev.date, c.reminder_days
   from public.assignments a
   join public.events ev on ev.id = a.event_id
   join public.volunteers v on v.id = a.volunteer_id
   join public.churches c on c.id = a.church_id
   where a.status = 'assigned' and c.active and c.reminder_days > 0
-    and ev.date > current_date and ev.date <= current_date + c.reminder_days
-    and public.email_ok(v.email)
-  on conflict (dedupe_key) do nothing;
+    and ev.date >= current_date and public.email_ok(v.email)
+$$;
+revoke execute on function public.reminder_candidates() from public, anon, authenticated;
+
+-- Queues a reminder for every volunteer on an event coming up within their church's reminder window
+-- (by default the next 2 days). Runs once a day. Someone assigned late still gets one on the next run,
+-- and a reminder that was cancelled (say they were taken off and put back) is queued again.
+create or replace function public.queue_reminders() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  insert into public.email_outbox as o (church_id, kind, assignment_id, dedupe_key, to_email, reply_to, subject, body)
+  select r.church_id, 'reminder', r.assignment_id, r.dedupe_key, r.to_email, r.reply_to, r.subject, r.body
+  from public.reminder_candidates() r
+  where r.event_date > current_date and r.event_date <= current_date + r.reminder_days
+  on conflict (dedupe_key) do update
+    set status = 'waiting', attempts = 0, error = '', request_id = null, sending_at = null, created_at = now(),
+        to_email = excluded.to_email, reply_to = excluded.reply_to, subject = excluded.subject, body = excluded.body
+    where o.status = 'cancelled';
   get diagnostics n = row_count;
   return n;
 end;
@@ -812,8 +830,8 @@ begin
        and public.church_role_of(ev.created_by, new.church_id) in ('coordinator', 'admin');
     select * into v from public.volunteers where id = new.volunteer_id;
     select * into c from public.churches where id = new.church_id;
-    insert into public.email_outbox (church_id, kind, assignment_id, dedupe_key, to_email, reply_to, subject, body)
-    select new.church_id, 'cant_make_it', new.id,
+    insert into public.email_outbox (church_id, kind, assignment_id, cant_at, dedupe_key, to_email, reply_to, subject, body)
+    select new.church_id, 'cant_make_it', new.id, new.cant_at,
            'cant:' || new.id || ':' || coalesce(new.cant_at, now()) || ':' || r.email,
            r.email,
            case when public.email_ok(v.email) then lower(trim(v.email)) else '' end,
@@ -825,7 +843,8 @@ begin
              || case when trim(v.phone) <> '' or public.email_ok(v.email) then
                   'You can reach ' || split_part(trim(v.name), ' ', 1) || ' at '
                   || concat_ws(' or ', nullif(trim(v.phone), ''), case when public.email_ok(v.email) then lower(trim(v.email)) end)
-                  || E'. Replying to this email goes to them.\n' else '' end
+                  || '.' || case when public.email_ok(v.email) then ' Replying to this email goes to them.' else '' end
+                  || E'\n' else '' end
              || E'\n' || public.email_church_link(c)
     from (
       select distinct lower(trim(p.email)) as email from public.profiles p
@@ -844,21 +863,32 @@ drop trigger if exists assignments_cant_alert on public.assignments;
 create trigger assignments_cant_alert after update of status on public.assignments
   for each row execute function public.queue_cant_make_it_alert();
 
--- Reminders that no longer apply (taken off the event, can't make it, event moved or over) are not sent.
-create or replace function public.cancel_stale_reminders() returns int
+-- Run just before sending. Unsent reminders get the event's current details, and anything that
+-- no longer applies is not sent: a reminder for someone taken off the event, an event that moved or is
+-- over, or a church that turned reminders off; an alert for someone who said they can make it after all.
+create or replace function public.refresh_queued_emails() returns int
 language plpgsql security definer set search_path = public as $$
-declare n int;
+declare n int; m int;
 begin
-  update public.email_outbox o set status = 'cancelled', error = 'No longer on this event, or the event changed'
+  update public.email_outbox o
+     set to_email = r.to_email, reply_to = r.reply_to, subject = r.subject, body = r.body
+    from public.reminder_candidates() r
+   where o.kind = 'reminder' and o.status = 'waiting' and r.dedupe_key = o.dedupe_key
+     and (o.to_email, o.reply_to, o.subject, o.body) is distinct from (r.to_email, r.reply_to, r.subject, r.body);
+  update public.email_outbox o set status = 'cancelled', error = 'No longer needed: taken off the event, the event changed, or reminders were turned off'
    where o.kind = 'reminder' and o.status = 'waiting'
-     and not exists (select 1 from public.assignments a join public.events ev on ev.id = a.event_id
-                      where a.id = o.assignment_id and a.status = 'assigned' and ev.date >= current_date
-                        and o.dedupe_key = 'reminder:' || a.id || ':' || ev.date);
+     and not exists (select 1 from public.reminder_candidates() r where r.dedupe_key = o.dedupe_key);
   get diagnostics n = row_count;
-  return n;
+  update public.email_outbox o set status = 'cancelled', error = 'They said they can make it after all'
+   where o.kind = 'cant_make_it' and o.status = 'waiting'
+     and not exists (select 1 from public.assignments a
+                      where a.id = o.assignment_id and a.status = 'cant_make_it' and a.cant_at is not distinct from o.cant_at);
+  get diagnostics m = row_count;
+  return n + m;
 end;
 $$;
-revoke execute on function public.cancel_stale_reminders() from public, anon, authenticated;
+drop function if exists public.cancel_stale_reminders();
+revoke execute on function public.refresh_queued_emails() from public, anon, authenticated;
 
 -- Staff can see their church's emails (Manage -> Emails). Only the database itself writes them.
 alter table public.email_settings enable row level security;

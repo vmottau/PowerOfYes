@@ -122,15 +122,59 @@ ok(total === before + 2 && await p.locator(".improw select >> nth=0").inputValue
   `re-uploading the downloaded list matches everyone already there (${total} rows, 0 new)`);
 await p.click(".importer button:has-text('Choose a different file')");
 
+// 3b. Two rows for one card that had no contact details: the second builds on the first instead of undoing it
+await upload("lee.csv", Buffer.from("Name,Email,Interests\nLee Ringer,lee1@example.org,Pancake\nLee Ringer,lee2@example.org,Movie Night\n"));
+await p.waitForSelector(".implist");
+ok(await row(2).locator("select").inputValue() === "update" && await row(3).locator("select").inputValue() === "update", "both rows are set to update the same card");
+await p.click("button:has-text('Save 2 volunteers')");
+await p.waitForSelector(".impresult:has-text('Updated 2 existing cards')");
+await p.click(".importer button:has-text('Done')");
+{
+  const lee = p.locator("article.vol:has-text('Lee Ringer')");
+  await lee.locator("text=lee1@example.org").waitFor();
+  ok(await lee.locator(".tag:has-text('Pancake')").isVisible() && await lee.locator(".tag:has-text('Movie Night')").isVisible() && await lee.locator(".pill.done").isVisible(),
+    "the second update kept the first one's email and interests, and the contacted mark");
+}
+
+// 3c. A family sharing an email, both already listed: re-uploading updates both, adds nobody
+await p.click("button:has-text('Import spreadsheet')");
+await upload("family.csv", Buffer.from("Name,Email\nPat Family,fam@example.org\nSam Family,fam@example.org\n"));
+await p.waitForSelector(".implist");
+await p.click("button:has-text('Save 2 volunteers')");
+await p.waitForSelector(".impresult:has-text('Added 2')");
+await p.click(".importer button:has-text('Import another')");
+await upload("family.csv", Buffer.from("Name,Email\nPat Family,fam@example.org\nSam Family,fam@example.org\n"));
+await p.waitForSelector(".implist");
+ok(await row(2).locator("select").inputValue() === "update" && await row(3).locator("select").inputValue() === "update",
+  "two listed family members with one email are both matched, not added again");
+
+// 3d. Names in other alphabets are matched too
+await p.click(".importer button:has-text('Choose a different file')");
+await upload("names.csv", Buffer.from("Name\nИван Петров\nиван петров\n王小明\n"));
+await p.waitForSelector(".implist");
+ok((await row(3).textContent()).includes("Same person as row 2") && await row(4).locator("select").inputValue() === "add", "Cyrillic and Chinese names are read and compared");
+
+// 3e. A file where every row needs fixing can still reach the download of those rows
+await p.click(".importer button:has-text('Choose a different file')");
+await upload("bad.csv", Buffer.from("Name,Email\n,someone@example.org\nNo At,nope\n"));
+await p.waitForSelector(".implist");
+await p.click("button:has-text('Continue without saving')");
+await p.waitForSelector(".impresult:has-text('Nothing was saved')");
+{
+  const d = await download(() => p.click("button:has-text(\"Download rows that weren't imported\")"));
+  ok(d.body.toString("utf8").includes("looks incomplete"), "an all-bad file still offers the rows to fix, with reasons");
+}
+await p.click(".importer button:has-text('Import another')");
+
 // 4. Files that can't be read say what to do
 await upload("old.xls", Buffer.from([0xd0, 0xcf, 0x11, 0xe0]), "application/vnd.ms-excel");
 await p.waitForSelector(".importer .warn:has-text('Save As')");
 await upload("random.csv", Buffer.from("Shoe,Hat\n1,2\n"));
 await p.waitForSelector(".importer .warn:has-text(\"find a\")");
 // Excel's "CSV (Comma delimited)" in a European locale: semicolons, Windows encoding
-await upload("cards.csv", Buffer.from("Name;Phone;Email\r\nJos\xe9 Pe\xf1a;5550101234;\r\n", "latin1"));
+await upload("cards.csv", Buffer.from("Fall drive, St. Example\r\n\r\nName;Phone;Email\r\nJos\xe9 Pe\xf1a;5550101234;\r\n", "latin1"));
 await p.waitForSelector(".improw:has-text('José Peña')");
-ok(true, "unreadable files explain what to do; semicolon CSVs with accents read correctly");
+ok(true, "unreadable files explain what to do; semicolon CSVs with a title line and accents read correctly");
 
 ok(!errors.length, `no browser errors (${errors.join(" | ")})`);
 await b.close();

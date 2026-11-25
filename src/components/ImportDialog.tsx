@@ -40,8 +40,10 @@ export function downloadImportTemplate(ministries: Ministry[]) {
 
 const ACTION_LABEL: Record<Action, string> = { add: "Add as a new volunteer", update: "Update the existing card", skip: "Skip this row" };
 
-export function ImportDialog({ volunteers, onClose, onImported }: {
+export function ImportDialog({ volunteers, onClose, onImported, onBusy }: {
   volunteers: Volunteer[]; onClose: () => void; onImported: (msg: string) => void;
+  /** True while saving, so the window can't be closed halfway through. */
+  onBusy: (busy: boolean) => void;
 }) {
   const api = useApi();
   const { ministries } = useAppState();
@@ -68,22 +70,32 @@ export function ImportDialog({ volunteers, onClose, onImported }: {
     const todo = plan.rows.filter((r) => r.action !== "skip");
     let added = 0, updated = 0;
     const left = plan.rows.filter((r) => r.action === "skip");
+    // Two rows can update the same card: each one builds on what the previous one saved.
+    const latest = new Map<string, Volunteer>();
+    onBusy(true);
     setStep({ at: "saving", done: 0, total: todo.length });
-    for (let i = 0; i < todo.length; i++) {
-      const r = todo[i];
-      try {
-        if (r.action === "update" && r.existing) { await api.saveVolunteer(mergeInto(r.existing, r.input), r.existing.id); updated++; }
-        else { await api.saveVolunteer(r.input); added++; }
-      } catch (err) {
-        setStep({ at: "done", added, updated, left: [...left, ...todo.slice(i)], header: plan.header,
-          error: `Stopped at row ${r.line} (${r.input.name}): ${errText(err)}. Everything above it was saved. Fix the problem and upload the rows that weren't imported.` });
-        if (added || updated) onImported("");
-        return;
+    try {
+      for (let i = 0; i < todo.length; i++) {
+        const r = todo[i];
+        try {
+          if (r.action === "update" && r.existing) {
+            const v = await api.saveVolunteer(mergeInto(latest.get(r.existing.id) ?? r.existing, r.input), r.existing.id);
+            latest.set(v.id, v); updated++;
+          } else { await api.saveVolunteer(r.input); added++; }
+        } catch (err) {
+          const why = errText(err);
+          setStep({ at: "done", added, updated, header: plan.header,
+            left: [...left, { ...r, errors: [`Couldn't save: ${why}`] }, ...todo.slice(i + 1).map((x) => ({ ...x, errors: ["Not tried, because the import stopped at an earlier row"] }))],
+            error: `Stopped at row ${r.line} (${r.input.name}): ${why}. Everything above it was saved. Download the rows that weren't imported, then upload them again.` });
+          // A row can be half-saved (the person, but not their notes), so always refresh the list.
+          onImported("");
+          return;
+        }
+        setStep({ at: "saving", done: i + 1, total: todo.length });
       }
-      setStep({ at: "saving", done: i + 1, total: todo.length });
-    }
-    setStep({ at: "done", added, updated, left, header: plan.header });
-    onImported(summary(added, updated));
+      setStep({ at: "done", added, updated, left, header: plan.header });
+      onImported(summary(added, updated));
+    } finally { onBusy(false); }
   }
 
   function downloadLeftovers(header: string[], left: ImportRow[]) {
@@ -207,8 +219,8 @@ function Preview({ step, onlyFlagged, setOnlyFlagged, ministries, setAction, onB
     <div className="formfoot">
       <button className="btn" type="button" onClick={onBack}>Choose a different file</button>
       <div className="right">
-        <button className="btn primary" type="button" disabled={!willSave} onClick={onSave}>
-          {willSave ? `Save ${plural(willSave, "volunteer")}` : "Nothing to save"}
+        <button className="btn primary" type="button" onClick={onSave}>
+          {willSave ? `Save ${plural(willSave, "volunteer")}` : "Continue without saving"}
         </button>
       </div>
     </div>

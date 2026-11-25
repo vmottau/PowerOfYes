@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApi, type Volunteer, type VolunteerInput } from "../api";
 import { PageHeader, useAppState } from "../App";
@@ -34,6 +34,7 @@ export function Directory() {
   const [newEventFor, setNewEventFor] = useState<string[] | null>(null);
   const [followFor, setFollowFor] = useState<Volunteer | null>(null);
   const [importing, setImporting] = useState(false);
+  const importBusy = useRef(false);
 
   const vols = data.data?.vols ?? [];
   const events = data.data?.events ?? [];
@@ -230,10 +231,10 @@ export function Directory() {
         )}
       </Modal>
 
-      <Modal open={importing} onClose={() => setImporting(false)} labelledBy="imp-dlg-title">
+      <Modal open={importing} onClose={() => { if (!importBusy.current) setImporting(false); }} labelledBy="imp-dlg-title">
         {importing && data.data && (
           <ImportDialog volunteers={vols} onClose={() => setImporting(false)}
-            onImported={(msg) => { if (msg) toast(msg); void data.reload(); }} />
+            onImported={(msg) => { if (msg) toast(msg); void data.reload(); }} onBusy={(b) => { importBusy.current = b; }} />
         )}
       </Modal>
 

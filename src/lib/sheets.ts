@@ -28,11 +28,14 @@ function decodeText(buf: Uint8Array): string {
   catch { return new TextDecoder("windows-1252").decode(buf); }
 }
 
-/** CSV with quotes; the separator (comma, semicolon or tab) is picked from the first line. */
+/**
+  CSV with quotes. The separator (comma, semicolon or tab) is the one that splits some line near the top
+  into the most cells, so a title line above the column headers doesn't decide it.
+*/
 export function parseCSV(text: string): Grid {
-  const first = text.slice(0, text.search(/\r?\n|$/));
-  const count = (c: string) => first.split(c).length;
-  const sep = [",", ";", "\t"].sort((a, b) => count(b) - count(a))[0];
+  const top = text.split(/\r?\n/).slice(0, 20).map((l) => l.replace(/"[^"]*"/g, ""));
+  const most = (c: string) => Math.max(0, ...top.map((l) => l.split(c).length - 1));
+  const sep = [",", ";", "\t"].sort((a, b) => most(b) - most(a))[0];
   const rows: Grid = [];
   let row: string[] = [], cell = "", q = false;
   for (let i = 0; i < text.length; i++) {

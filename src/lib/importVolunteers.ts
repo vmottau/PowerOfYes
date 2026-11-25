@@ -92,7 +92,9 @@ const isTicked = (s: string) => !NO.has(s.trim().toLowerCase());
 /** Our own download puts ' before text starting with = + - @ so spreadsheets don't run it as a formula. */
 const unguard = (s: string) => (/^'[=+\-@]/.test(s) ? s.slice(1) : s).trim();
 
-const sameName = (a: string, b: string) => !!norm(a) && norm(a) === norm(b);
+/** Names in any alphabet: keeps letters and digits of every script, drops accents, spaces and punctuation. */
+const normName = (s: string) => s.toLowerCase().normalize("NFKD").replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]/gu, "");
+const sameName = (a: string, b: string) => !!normName(a) && normName(a) === normName(b);
 
 export function buildImportPlan(grid: Grid, ministries: Ministry[], existing: Volunteer[]): ImportPlan {
   const empty = (problem: string): ImportPlan => ({ header: [], rows: [], unusedColumns: [], problem });
@@ -161,9 +163,9 @@ export function buildImportPlan(grid: Grid, ministries: Ministry[], existing: Vo
       (contactMatch(o.input) || (sameName(o.input.name, r.input.name) && !conflicting(o.input))));
     if (earlier) {
       r.sameAs = earlier.line;
-      if (sameName(earlier.input.name, r.input.name)) { r.action = "skip"; r.notes.unshift(`Same person as row ${earlier.line}`); }
-      else r.notes.unshift(`Shares a phone or email with ${earlier.input.name} (row ${earlier.line}). Check they're different people.`);
-      continue;
+      if (sameName(earlier.input.name, r.input.name)) { r.action = "skip"; r.notes.unshift(`Same person as row ${earlier.line}`); continue; }
+      // A family sharing a phone or email: still look for this person in the list below.
+      r.notes.unshift(`Shares a phone or email with ${earlier.input.name} (row ${earlier.line}). Check they're different people.`);
     }
     const byName = existing.find((o) => sameName(o.name, r.input.name) && (contactMatch(o) || !conflicting(o)));
     const byContact = existing.find((o) => contactMatch(o));

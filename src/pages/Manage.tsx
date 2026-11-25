@@ -7,14 +7,15 @@ import { churchLink } from "../api/churchChoice";
 import { copyText, errText, useLoad, useToast } from "../lib/hooks";
 import { downloadBlob, toCSV, zipFiles } from "../lib/export";
 import { fmtPhone, todayISO } from "../lib/format";
+import { Emails } from "./Emails";
 
-type Tab = "areas" | "people" | "backup" | "appearance";
+type Tab = "areas" | "people" | "emails" | "backup" | "appearance";
 
 export function Manage() {
   const { session } = useAppState();
   const isAdmin = session.profile.role === "admin";
   const [tab, setTab] = useState<Tab>("areas");
-  const tabs: [Tab, string][] = [["areas", "Ministries & areas"], ["people", "People & roles"], ["backup", "Backup"], ...(isAdmin ? [["appearance", "Appearance"] as [Tab, string]] : [])];
+  const tabs: [Tab, string][] = [["areas", "Ministries & areas"], ["people", "People & roles"], ["emails", "Emails"], ["backup", "Backup"], ...(isAdmin ? [["appearance", "Appearance"] as [Tab, string]] : [])];
   return (
     <div>
       <PageHeader title="Manage" sub="The lists and settings behind the app." />
@@ -25,6 +26,7 @@ export function Manage() {
       </div>
       {tab === "areas" && <Areas />}
       {tab === "people" && <People canEdit={isAdmin} />}
+      {tab === "emails" && <Emails />}
       {tab === "backup" && <Backup />}
       {tab === "appearance" && isAdmin && <Appearance />}
     </div>

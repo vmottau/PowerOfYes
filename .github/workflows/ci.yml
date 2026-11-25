@@ -36,6 +36,11 @@ jobs:
           $P -f supabase/schema.sql
           $P -f supabase/tests/rls_test.sql | tee rls.log
           grep -q "ALL RLS CHECKS PASSED" rls.log
+          $P -f supabase/tests/email_stub.sql
+          sed -e '/create extension/d' -e 's/PASTE-YOUR-KEY-HERE/xkeysib-test-key/' -e 's/volunteers@your-church.org/volunteers@example.org/' \
+              -e "s#https://vmottau.github.io/PowerOfYes/'#https://example.org/app/'#" supabase/email-setup.sql | $P
+          $P -f supabase/tests/email_test.sql | tee email.log
+          grep -q "ALL EMAIL CHECKS PASSED" email.log
       - name: End-to-end walkthrough (demo mode)
         run: |
           npx playwright install --with-deps chromium

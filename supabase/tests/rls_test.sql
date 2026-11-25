@@ -223,6 +223,24 @@ do $$ begin
     raise exception 'FAIL: came back into a full open event';
   exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
 end $$;
+-- someone removed from the church no longer sees its open events, even though their card stays
+reset role;
+update events set needed = 5 where name = 'Open fish fry';
+delete from memberships where user_id = '00000000-0000-0000-0000-0000000000b1' and church_id = (select id from churches where slug = 'st-one');
+update assignments set status = 'cant_make_it' where volunteer_id = (select id from volunteers where name = 'Vol One at St One');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
+select pg_temp.expect((select count(*) from open_events((select id from church_by_slug('st-one')))) = 0, 'a removed member sees no open events');
+do $$ begin
+  begin perform sign_up_for_event((select id from events where name = 'Open fish fry'));
+    raise exception 'FAIL: a removed member signed up';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+reset role;
+insert into memberships (church_id, user_id) select id, '00000000-0000-0000-0000-0000000000b1' from churches where slug = 'st-one';
+update assignments set status = 'assigned' where volunteer_id = (select id from volunteers where name = 'Vol One at St One');
+update events set needed = 1 where name = 'Open fish fry';
+set role authenticated;
 -- the coordinator sees who signed themselves up
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1');
 select pg_temp.expect((select count(*) from assignments a join events e on e.id = a.event_id where e.name = 'Open fish fry' and a.self_signup) = 2, 'coordinator sees who signed themselves up');

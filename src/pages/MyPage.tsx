@@ -94,6 +94,7 @@ export function MyPage() {
         </section>
       )}
 
+      {me.data && open.error && <div className="notice">We couldn't load the open spots you can sign up for: {open.error}</div>}
       {me.data && !!openList.length && (
         <section className="sect" aria-labelledby="open-title">
           <div className="evhead"><h2 id="open-title">Open spots you can sign up for</h2><span className="muted">Picked from the areas on your card</span></div>

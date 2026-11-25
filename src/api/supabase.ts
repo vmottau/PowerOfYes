@@ -148,7 +148,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listOpenEvents() {
-      return (check(await sb.rpc("open_events", { c: cid() })) ?? []) as OpenEvent[];
+      return await allRows((a, b) => sb.rpc("open_events", { c: cid() }).order("date", { ascending: true, nullsFirst: false }).order("name").order("id").range(a, b)) as OpenEvent[];
     },
 
     async signUpForEvent(eventId) {

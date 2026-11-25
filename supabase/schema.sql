@@ -461,12 +461,13 @@ create or replace function public.can_make_it_after_all(assignment uuid) returns
 language plpgsql security definer set search_path = public as $$
 declare a record; ev record;
 begin
+  -- lock the event first, then the assignment (the same order as sign_up_for_event, so the two can't deadlock)
+  select * into ev from public.events where id = (select event_id from public.assignments where id = assignment) for update;
   select * into a from public.assignments where id = assignment for update;
   if a.id is null or a.volunteer_id is distinct from public.my_volunteer_id(a.church_id) then
     raise exception 'That event isn''t on your schedule';
   end if;
   if a.status <> 'cant_make_it' then return; end if;
-  select * into ev from public.events where id = a.event_id for update;
   if public.event_is_over(ev.date) then raise exception 'This event has already happened'; end if;
   -- on an event open for sign-up, someone else may have taken the freed spot
   if ev.open_signup and ev.needed is not null and (select count(*) from public.assignments
@@ -513,7 +514,7 @@ language sql stable security definer set search_path = public as $$
          (select count(*)::int from public.assignments t where t.event_id = e.id and t.status <> 'cant_make_it')
     from public.events e
     join public.volunteers v on v.church_id = e.church_id and v.user_id = auth.uid()
-   where e.church_id = c and e.open_signup and not public.event_is_over(e.date)
+   where e.church_id = c and public.church_role(c) is not null and e.open_signup and not public.event_is_over(e.date)
      and (e.area is null or e.area = any (v.ministries))
      and not exists (select 1 from public.assignments a where a.event_id = e.id and a.volunteer_id = v.id)
    order by e.date nulls last, e.name

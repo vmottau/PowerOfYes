@@ -10,6 +10,17 @@ function check<T>(res: { data: T; error: { message: string } | null }): T {
   return res.data;
 }
 
+/** Supabase returns at most 1,000 rows per request, so read big lists a page at a time (ordered by id as a tiebreak so pages don't overlap). */
+const PAGE = 1000;
+async function allRows<T>(page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const rows = check(await page(from, from + PAGE - 1)) ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
 const CHURCH_COLS = "id, slug, org_name, app_title, tagline, primary_color, accent_color, logo, active";
 
 export function createSupabaseApi(url: string, anonKey: string): Api {
@@ -129,7 +140,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listVolunteers() {
-      const rows = check(await sb.from("volunteers").select("*, volunteer_notes(notes)").eq("church_id", cid()).order("name")) as unknown as
+      const rows = await allRows((a, b) => sb.from("volunteers").select("*, volunteer_notes(notes)").eq("church_id", cid()).order("name").order("id").range(a, b)) as unknown as
         (Omit<Volunteer, "notes"> & { volunteer_notes: { notes: string } | { notes: string }[] | null })[];
       return rows.map(({ volunteer_notes, ...v }) => {
         const n = Array.isArray(volunteer_notes) ? volunteer_notes[0] : volunteer_notes;
@@ -150,7 +161,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listEvents() {
-      return check(await sb.from("events").select("*").eq("church_id", cid()).order("date", { ascending: true, nullsFirst: false })) as ChurchEvent[];
+      return await allRows((a, b) => sb.from("events").select("*").eq("church_id", cid()).order("date", { ascending: true, nullsFirst: false }).order("id").range(a, b)) as ChurchEvent[];
     },
 
     async saveEvent(input: EventInput, id?: string) {
@@ -163,7 +174,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listAssignments() {
-      return check(await sb.from("assignments").select("id, event_id, volunteer_id, status").eq("church_id", cid())) as Assignment[];
+      return await allRows((a, b) => sb.from("assignments").select("id, event_id, volunteer_id, status").eq("church_id", cid()).order("id").range(a, b)) as Assignment[];
     },
 
     async assign(eventId, volunteerIds) {
@@ -182,7 +193,7 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
     },
 
     async listFollowups() {
-      return check(await sb.from("followups").select("id, volunteer_id, note, due, assigned_to, done, done_at, created_at").eq("church_id", cid()).order("due", { ascending: true, nullsFirst: false })) as Followup[];
+      return await allRows((a, b) => sb.from("followups").select("id, volunteer_id, note, due, assigned_to, done, done_at, created_at").eq("church_id", cid()).order("due", { ascending: true, nullsFirst: false }).order("id").range(a, b)) as Followup[];
     },
 
     async saveFollowup(input: FollowupInput, id?: string) {

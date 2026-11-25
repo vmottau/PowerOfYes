@@ -76,8 +76,8 @@ function Backup() {
             .sort((x, y) => byDate(x.e, y.e) || x.e.name.localeCompare(y.e.name) || x.v.name.localeCompare(y.v.name))
             .map(({ a, e, v }) => [e.id, e.name, e.date ?? "", v.id, v.name, a.status[0].toUpperCase() + a.status.slice(1)])) },
         { name: "follow-ups.csv", text: toCSV(
-          ["Volunteer", "Note", "Due", "Assigned to", "Done", "Done on", "Added on"],
-          [...fus].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")).map((f) => [volById.get(f.volunteer_id)?.name ?? "", f.note,
+          ["Volunteer ID", "Volunteer", "Note", "Due", "Assigned to", "Done", "Done on", "Added on"],
+          [...fus].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")).map((f) => [f.volunteer_id, volById.get(f.volunteer_id)?.name ?? "", f.note,
             f.due ?? "", f.assigned_to ? emailOf.get(f.assigned_to) ?? "" : "", f.done, f.done_at?.slice(0, 10) ?? "", f.created_at.slice(0, 10)])) },
         { name: "ministries.csv", text: toCSV(
           ["ID", "Name", "Kind", "Hint", "Shown to volunteers", "Volunteers interested"],

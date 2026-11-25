@@ -5,10 +5,10 @@
 
 export type Cell = string | number | boolean | null | undefined;
 
-/** One CSV cell. Text that a spreadsheet would run as a formula (=, +, -, @) gets a leading ' so it stays plain text. */
+/** One CSV cell. Text that a spreadsheet would run as a formula (=, +, -, @) gets a leading ' so it stays plain text; real numbers stay numbers. */
 function cell(v: Cell): string {
   let s = v === null || v === undefined ? "" : typeof v === "boolean" ? (v ? "Yes" : "No") : String(v);
-  if (/^[=@\t\r]/.test(s) || (/^[+-]/.test(s) && !/^[+-][\d\s().-]*$/.test(s))) s = "'" + s;
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

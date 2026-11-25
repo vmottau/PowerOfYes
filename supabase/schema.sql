@@ -431,14 +431,13 @@ create or replace function public.cant_make_it(assignment uuid, reason text defa
 language plpgsql security definer set search_path = public as $$
 declare a record; ev record; v record; r text := left(trim(coalesce(reason, '')), 500); owner uuid;
 begin
-  select * into a from public.assignments where id = assignment;
+  select * into a from public.assignments where id = assignment for update;
   if a.id is null or a.volunteer_id is distinct from public.my_volunteer_id(a.church_id) then
     raise exception 'That event isn''t on your schedule';
   end if;
   if a.status <> 'assigned' then raise exception 'You''ve already let us know about this event'; end if;
   select * into ev from public.events where id = a.event_id;
-  -- a day of slack, because the database's "today" is UTC
-  if ev.date is not null and ev.date < current_date - 1 then raise exception 'This event has already happened'; end if;
+  if public.event_is_over(ev.date) then raise exception 'This event has already happened'; end if;
   select * into v from public.volunteers where id = a.volunteer_id;
   update public.assignments set status = 'cant_make_it', cant_reason = r, cant_at = now() where id = a.id;
   owner := case when public.church_role_of(ev.created_by, a.church_id) in ('coordinator', 'admin') then ev.created_by end;
@@ -455,17 +454,41 @@ create or replace function public.can_make_it_after_all(assignment uuid) returns
 language plpgsql security definer set search_path = public as $$
 declare a record; ev record;
 begin
-  select * into a from public.assignments where id = assignment;
+  select * into a from public.assignments where id = assignment for update;
   if a.id is null or a.volunteer_id is distinct from public.my_volunteer_id(a.church_id) then
     raise exception 'That event isn''t on your schedule';
   end if;
   if a.status <> 'cant_make_it' then return; end if;
   select * into ev from public.events where id = a.event_id;
-  if ev.date is not null and ev.date < current_date - 1 then raise exception 'This event has already happened'; end if;
-  update public.assignments set status = 'assigned', cant_reason = '', cant_at = null where id = a.id;
-  update public.followups set done = true, done_at = now() where assignment_id = a.id and not done;
+  if public.event_is_over(ev.date) then raise exception 'This event has already happened'; end if;
+  -- the assignments_cant_cleared trigger clears the note and closes the follow-up
+  update public.assignments set status = 'assigned' where id = a.id;
 end;
 $$;
+
+-- True once a date has passed everywhere on earth (it's already tomorrow in UTC-12).
+-- Churches don't store a time zone, so this is the strictest check that never blocks a same-day event.
+create or replace function public.event_is_over(d date) returns boolean
+language sql stable as $$
+  select d is not null and d < (now() at time zone 'Etc/GMT+12')::date
+$$;
+
+-- When a "can't make it" is taken back (by the volunteer, or a coordinator's "Put back on roster"),
+-- clear the note and close the "find someone" follow-up it made.
+create or replace function public.clear_cant_make_it() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.status = 'cant_make_it' and new.status <> 'cant_make_it' then
+    new.cant_reason := '';
+    new.cant_at := null;
+    update public.followups set done = true, done_at = now() where assignment_id = new.id and not done;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists assignments_cant_cleared on public.assignments;
+create trigger assignments_cant_cleared before update on public.assignments
+  for each row execute function public.clear_cant_make_it();
 
 -- Someone else's role at a church (for the functions above; not callable by the app).
 create or replace function public.church_role_of(u uuid, c uuid) returns text

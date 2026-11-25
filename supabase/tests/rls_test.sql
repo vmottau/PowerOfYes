@@ -152,7 +152,20 @@ select pg_temp.expect((select count(*) from followups where assignment_id is not
 select pg_temp.expect((select note from followups where assignment_id is not null and not done) like 'Can''t make it to Pierogi batch (Jan 1). Find someone%', 'follow-up says which event');
 select pg_temp.expect((select assigned_to from followups where assignment_id is not null and not done) = '00000000-0000-0000-0000-0000000000a1', 'follow-up goes to whoever created the event');
 select pg_temp.expect((select count(*) from followups where assignment_id is not null and done) = 1, 'taking it back closed its follow-up');
+-- coordinator puts them back on the roster: the note is cleared and the follow-up closed
+update assignments set status = 'assigned' where status = 'cant_make_it';
+select pg_temp.expect((select cant_reason = '' and cant_at is null from assignments), 'putting them back clears the note');
+select pg_temp.expect((select count(*) from followups where assignment_id is not null and not done) = 0, 'putting them back closes the follow-up');
+-- an event that is over everywhere can't be changed
+reset role;
+update events set date = current_date - 2;
+set role authenticated;
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b2');
+do $$ begin
+  begin perform cant_make_it((select id from assignments), ''); raise exception 'FAIL: changed a past event';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+select pg_temp.expect(not event_is_over(current_date), 'an event today is not over');
 
 -- the last admin of a church cannot be removed or demoted
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');

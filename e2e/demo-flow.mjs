@@ -166,6 +166,13 @@ ok(!(await p.isVisible(".roster .rrow:has-text('Newbie Volunteer')")), "their sp
   ok(eventRow?.includes(`,6,${rosterCount},`), "backup event roster count excludes volunteers who can't make it");
   ok(backup.includes("Can't make it") && backup.includes("Out of town that weekend") && backup.includes("Can't make it at"), "backup preserves availability status and note");
 }
+await go("Events");
+await p.click("a.ev:has-text('Fall pierogi batch')");
+await p.click(".cantlist .rrow:has-text('Newbie Volunteer') >> text=Put back on roster");
+await p.waitForSelector(".roster .rrow:has-text('Newbie Volunteer')");
+await go("Home");
+await p.waitForSelector(".tile:has-text('Follow-ups due')");
+ok(!(await p.isVisible(".fu:has-text(\"Can't make it to Example: Fall pierogi batch\")")) && !(await p.isVisible(".panel.alert")), "putting them back on the roster closes the follow-up");
 await signOut();
 await signIn("newbie@example.org");
 await p.waitForSelector("text=Example: Fall pierogi batch");

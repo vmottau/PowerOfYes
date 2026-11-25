@@ -98,6 +98,14 @@ export function createDemoApi(): Api {
   const mine = <T extends { church_id: string }>(rows: T[]) => rows.filter((r) => r.church_id === churchId);
   const myVol = () => s.volunteers.find((v) => v.church_id === churchId && v.user_id === s.sessionUserId) ?? null;
   const notify = () => listeners.forEach((l) => setTimeout(l, 0));
+  // Same as the assignments_cant_cleared trigger: taking back "can't make it" clears the note and closes its follow-up.
+  const setStatus = (a: Row<Assignment>, status: Assignment["status"]) => {
+    if (a.status === "cant_make_it" && status !== "cant_make_it") {
+      Object.assign(a, { cant_reason: "", cant_at: null });
+      for (const f of s.followups) if (f.assignment_id === a.id && !f.done) { f.done = true; f.done_at = new Date().toISOString(); }
+    }
+    a.status = status;
+  };
 
   function syncMe() {
     const a = me(); if (!a) return;
@@ -194,8 +202,7 @@ export function createDemoApi(): Api {
       if (!v || !a || !ev) throw new Error("That event isn't on your schedule.");
       if (a.status !== "cant_make_it") return;
       if (ev.date && ev.date < todayISO()) throw new Error("This event has already happened.");
-      Object.assign(a, { status: "assigned", cant_reason: "", cant_at: null });
-      for (const f of s.followups) if (f.assignment_id === a.id && !f.done) { f.done = true; f.done_at = new Date().toISOString(); }
+      setStatus(a, "assigned");
       save();
     },
 
@@ -237,7 +244,7 @@ export function createDemoApi(): Api {
       }
       save(); return n;
     },
-    async setAttendance(id, status) { requireStaff(); const a = mine(s.assignments).find((x) => x.id === id); if (a) a.status = status; save(); },
+    async setAttendance(id, status) { requireStaff(); const a = mine(s.assignments).find((x) => x.id === id); if (a) setStatus(a, status); save(); },
     async unassign(id) { requireStaff(); s.assignments = s.assignments.filter((a) => !(a.id === id && a.church_id === churchId)); save(); },
 
     async listFollowups() { requireStaff(); return out(mine(s.followups).map(strip)); },

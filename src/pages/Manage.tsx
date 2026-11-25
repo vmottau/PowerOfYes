@@ -344,6 +344,8 @@ const PRESETS: { name: string; primary: string; accent: string }[] = [
   { name: "Navy", primary: "#1d3fa6", accent: "#b8326e" },
   { name: "Forest", primary: "#24613f", accent: "#c08a2b" },
   { name: "Burgundy", primary: "#7a1f2b", accent: "#c79a3a" },
+  { name: "Brown & gold", primary: "#62483d", accent: "#fca622" },
+  { name: "Navy & gold", primary: "#3f4370", accent: "#fca622" },
 ];
 
 async function shrinkImage(file: File, max = 256): Promise<string> {

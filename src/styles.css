@@ -454,3 +454,44 @@ dialog h2 { font-family: var(--display); font-size: 28px; text-transform: upperc
   .printsheet footer { margin-top: 10pt; font-size: 9pt; color: #555; }
 }
 .table td.nowrap { white-space: nowrap; }
+
+/* ---------- spreadsheet import ---------- */
+dialog:has(.importer) { width: min(820px, calc(100vw - 24px)); }
+.importer .lead { margin: 0; }
+.importer .steps { margin: 0; padding-left: 22px; display: grid; gap: 14px; }
+.importer .steps li > div { margin-top: 8px; }
+.importer .small, .importer .inline.small { font-size: 14px; }
+.emptyactions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.impsummary { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.impsummary li { padding: 6px 10px; border-radius: 8px; background: var(--bg); }
+.impsummary li.good { background: var(--good-soft); }
+.impsummary li.bad { background: var(--danger-soft); }
+.implist { display: grid; gap: 6px; max-height: max(200px, calc(100dvh - 560px)); overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; padding: 6px; }
+.improw { display: grid; grid-template-columns: 58px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
+.improw.skip { background: var(--bg); }
+.improw.skip > .minw0 { opacity: .75; }
+.improw.bad { background: var(--danger-soft); border-color: color-mix(in oklab, var(--danger) 30%, white); }
+.improw .line { font-size: 13px; color: var(--muted); padding-top: 2px; }
+.improw .contact { display: block; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.improw .tags { margin-top: 6px; }
+.improw p { margin: 6px 0 0; }
+.impnote { font-size: 14px; color: var(--warn-c); }
+.improw select { padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); max-width: 220px; }
+.impsaving { display: grid; gap: 8px; }
+.impsaving progress { width: 100%; height: 14px; accent-color: var(--primary); }
+.impresult { font-size: 18px; font-weight: 600; margin: 0; }
+.importer .notice p { margin: 0 0 10px; }
+@media (max-width: 560px) {
+  .improw { grid-template-columns: minmax(0, 1fr); }
+  .improw select { max-width: none; width: 100%; }
+}
+
+/* Open sign-up */
+.signupopt .inline { text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--fg); }
+.hint { margin: 0; color: var(--muted); font-size: 14px; }
+.pill.opensu { background: var(--good-soft); color: var(--good); display: inline-block; margin-top: 4px; }
+.meta .pill.opensu { margin-top: 0; }
+.ev .spots { font-weight: 600; color: var(--good); }
+.ev.openev.full .spots { color: var(--muted); }
+.ev.openev { border-color: color-mix(in oklab, var(--good) 35%, var(--line)); }
+.rrow .who b .badge { display: inline-block; margin-left: 8px; color: var(--good); font-size: 12px; }

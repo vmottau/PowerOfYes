@@ -57,6 +57,8 @@ export interface ChurchEvent {
   area: string | null;
   needed: number | null;
   notes: string;
+  /** Volunteers who checked this event's area (or anyone, if it has none) can sign themselves up until it's full. */
+  open_signup: boolean;
 }
 
 export type EventInput = Omit<ChurchEvent, "id">;
@@ -70,6 +72,8 @@ export interface Assignment {
   cant_reason: string;
   /** When they said they can't make it, or null. */
   cant_at: string | null;
+  /** True when the volunteer signed themselves up for an open event. */
+  self_signup?: boolean;
 }
 
 export interface Followup {
@@ -90,6 +94,11 @@ export interface FollowupInput {
   note: string;
   due: string | null;
   assigned_to: string | null;
+}
+
+/** An event open for sign-up, as a volunteer sees it, with how many spots are taken. */
+export interface OpenEvent extends ChurchEvent {
+  taken: number;
 }
 
 export interface MyAssignment {
@@ -172,6 +181,10 @@ export interface Api {
   cantMakeIt(assignmentId: string, reason: string): Promise<void>;
   /** Volunteer: takes back "I can't make it" (only while the event is still upcoming). */
   canMakeItAfterAll(assignmentId: string): Promise<void>;
+  /** Volunteer: upcoming events open for sign-up in areas they checked, that they're not already on. */
+  listOpenEvents(): Promise<OpenEvent[]>;
+  /** Volunteer: claims a spot on an event that's open for sign-up (refused once it's full). */
+  signUpForEvent(eventId: string): Promise<void>;
 
   // Coordinator and admin
   listVolunteers(): Promise<Volunteer[]>;

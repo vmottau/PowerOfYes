@@ -4,6 +4,8 @@ A web app for the parish volunteer program. It replaces the paper "Power of Yes"
 
 - **Volunteers** sign in with their email (no password), fill in the same card online, and see where they're scheduled. If they can't make an event, they press **Can't make it** on *My card*: their spot opens up, and coordinators see it on their home page and get a follow-up to find someone else.
 - **Coordinators** see every volunteer by area of interest, type in paper cards, create events and projects, assign people, and mark who showed up.
+- **Coordinators** can bring in a whole stack of paper cards at once: type them into a spreadsheet (there's a blank template), upload it under **Volunteers → Import spreadsheet**, and check a preview that flags missing names, broken emails and people who are already listed before anything is saved.
+- **Open sign-up:** a coordinator can tick **Open for sign-up** on an event. Volunteers who checked that event's area (or everyone, for a general event) then see it on *My card* and can press **Sign me up** until the "Volunteers needed" number is reached. A spot freed by **Can't make it** opens up again. On the roster, people who signed themselves up are marked "Signed up online".
 - **Coordinators** can download any filtered volunteer list or event roster as a spreadsheet, print a sign-in sheet for an event or a list for a ministry, and download a full backup under **Manage → Backup**.
 - **Volunteers get a reminder email** a couple of days before each event they're on, and **coordinators get an email** when someone presses **Can't make it**. Admins choose how many days ahead under **Manage → Emails**, where staff can also see every email that went out.
 - **Coordinators** also keep a follow-up to-do list ("Call Ann about the pierogi batch, due Friday") and maintain the list of ministries and events volunteers can pick from.
@@ -32,6 +34,7 @@ Until Supabase is connected, the site runs in **demo mode**: sample data that st
 | `supabase/email-setup.sql` | Turns on email sending (reminders and "Can't make it" alerts) |
 | `supabase/tests/` | Automated checks of those rules |
 | `e2e/demo-flow.mjs` | Automated walkthrough of every role in demo mode |
+| `e2e/import-flow.mjs` | Automated check of the spreadsheet import in demo mode |
 | `.github/workflows/` | Publishes the site to GitHub Pages and runs the checks on every change |
 
 Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts the site.
@@ -39,7 +42,7 @@ Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts
 ## One-time setup
 
 ### 1. Create the Supabase project
-(If you already ran an older `schema.sql`, run the new one again. It's safe to re-run and adds what's missing, such as the "Can't make it" button's columns.)
+(If you already ran an older `schema.sql`, run the new one again. It's safe to re-run and adds what's missing, such as the "Can't make it" button's columns and open sign-up for events.)
 
 1. Sign up at [supabase.com](https://supabase.com) and click **New project**. Pick any name and region, and save the database password somewhere safe.
 2. Open **SQL Editor → New query**, paste everything from [`supabase/schema.sql`](supabase/schema.sql), and click **Run**.
@@ -102,6 +105,14 @@ A church with its own web address (St. Peter's has `stpeterchurchcoplay.com`) ca
 The "from" address doesn't need a real mailbox, because replies go to the coordinator or the volunteer. Still, if the church can create a `volunteers@` mailbox or forwarding address, people who write to it will reach someone.
 
 ## Paper cards and online sign-ups
+To add many cards at once, open **Volunteers → Import spreadsheet** and download the blank template. Type one card per row (only the name is required), then upload the file as Excel (.xlsx) or CSV. From Google Sheets, use **File → Download → Microsoft Excel**. The spreadsheet from **Download spreadsheet** can also be edited and uploaded again.
+
+Before saving, every row is shown with what will happen to it:
+- Someone already in the list (same name, or same phone or email) is set to **update the existing card**. That only fills in a missing phone or email, adds new interests and adds notes. It never erases anything.
+- The same person twice in the file is skipped the second time.
+- Rows with no name or a broken email can't be added. After saving, **Download rows that weren't imported** gives a spreadsheet of them with the reason, to fix and upload again.
+- Interests that aren't on the church's list are kept in the staff notes, so nothing written on a card is lost.
+
 Staff can keep typing in paper cards. When someone with a paper card later signs in and joins that church using the **same email address**, the app links them to their existing card automatically, along with their event history.
 
 ## Working on the code
@@ -128,11 +139,11 @@ psql -f supabase/tests/email_test.sql
 # End-to-end walkthrough of every role in demo mode
 VITE_DEMO=1 npm run build && npx vite preview --port 4173 &
 npm run test:e2e
+node e2e/import-flow.mjs
 ```
 
 ## Ideas for later
 See [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) for the full prioritized list. Top picks:
-- Volunteers sign themselves up for open events
 - Text-message reminders before an event
 - Attendance reports by ministry and season
 - Hours served, for youth service requirements

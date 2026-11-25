@@ -68,15 +68,15 @@ function Backup() {
             v.ministries.map((id) => areaLabel.get(id) ?? id).join("; "), v.notes, v.contacted, !!v.user_id,
             v.source === "card" ? "Paper card" : "Online", v.created_at.slice(0, 10)])) },
         { name: "events.csv", text: toCSV(
-          ["ID", "Name", "Date", "Time", "Place", "Area", "Needed", "On roster", "Notes"],
+          ["ID", "Name", "Date", "Time", "Place", "Area", "Needed", "On roster", "Notes", "Open for sign-up"],
           [...events].sort(byDate).map((e) => [e.id, e.name, e.date ?? "", e.time, e.place, e.area ? areaLabel.get(e.area) ?? e.area : "",
-            e.needed ?? "", asg.filter((a) => a.event_id === e.id && a.status !== "cant_make_it").length, e.notes])) },
+            e.needed ?? "", asg.filter((a) => a.event_id === e.id && a.status !== "cant_make_it").length, e.notes, !!e.open_signup])) },
         { name: "rosters.csv", text: toCSV(
-          ["Event ID", "Event", "Date", "Volunteer ID", "Volunteer", "Attendance", "Assignment ID", "Can't make it note", "Can't make it at"],
+          ["Event ID", "Event", "Date", "Volunteer ID", "Volunteer", "Attendance", "Assignment ID", "Can't make it note", "Can't make it at", "Signed up online"],
           asg.filter((a) => evById.has(a.event_id) && volById.has(a.volunteer_id))
             .map((a) => ({ a, e: evById.get(a.event_id)!, v: volById.get(a.volunteer_id)! }))
             .sort((x, y) => byDate(x.e, y.e) || x.e.name.localeCompare(y.e.name) || x.v.name.localeCompare(y.v.name))
-            .map(({ a, e, v }) => [e.id, e.name, e.date ?? "", v.id, v.name, a.status === "cant_make_it" ? "Can't make it" : a.status[0].toUpperCase() + a.status.slice(1), a.id, a.cant_reason, a.cant_at ?? ""])) },
+            .map(({ a, e, v }) => [e.id, e.name, e.date ?? "", v.id, v.name, a.status === "cant_make_it" ? "Can't make it" : a.status[0].toUpperCase() + a.status.slice(1), a.id, a.cant_reason, a.cant_at ?? "", !!a.self_signup])) },
         { name: "follow-ups.csv", text: toCSV(
           ["Volunteer ID", "Volunteer", "Note", "Due", "Assigned to", "Done", "Done on", "Added on", "Assignment ID"],
           [...fus].sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999")).map((f) => [f.volunteer_id, volById.get(f.volunteer_id)?.name ?? "", f.note,

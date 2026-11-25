@@ -15,7 +15,7 @@ These close the biggest gaps between "list of names" and "people actually show u
 
 | # | Idea | Why it matters | Value | Effort |
 |---|---|---|---|---|
-| 1 | **Volunteers sign up for open slots themselves** | Today a coordinator has to pick and assign every person. Let coordinators mark an event "open for sign-up" and let volunteers who chose that ministry claim a spot until it's full (the event already has a "needed" number). Biggest time-saver for coordinators. | High | M |
+| 1 | **Volunteers sign up for open slots themselves** (done) | **Built.** Today a coordinator has to pick and assign every person. Let coordinators mark an event "open for sign-up" and let volunteers who chose that ministry claim a spot until it's full (the event already has a "needed" number). Biggest time-saver for coordinators. | High | M |
 | 2 | **Email reminders before an event** (done) | No-shows are the most common volunteer problem. Send each assigned volunteer a reminder 2 days before (time, place, notes), using the email sender already needed for sign-in (Brevo/Resend). Runs as a Supabase scheduled function. | High | M |
 | 3 | **"Can't make it" button for volunteers** (done) | Volunteers can see where they're scheduled but can't back out, so coordinators find out on the day. A button on *My page* that frees the spot and alerts the coordinator. Pairs with #1 and #2. | High | S |
 | 4 | **Message everyone in a ministry or on an event** | Coordinators need to reach "all lectors" or "everyone on Saturday's fish fry". Start simple: a button that copies all the emails (or opens a pre-filled email) for the filtered list. No outside service needed. | High | S |
@@ -32,7 +32,7 @@ Make it easier to run month after month.
 | 9 | **Volunteer availability** | Let volunteers say which days/times they can serve ("weekday mornings", "not in July"), and show that when coordinators pick people. Cuts down on asking people who can't come. | Medium | M |
 | 10 | **Reports: who served, how often** | Attendance by ministry and by season, most active volunteers, people who signed up but never served (great follow-up list). The data is already there from attendance marks. | Medium | M |
 | 11 | **Service hours** | Add hours to events and total them per volunteer, with a printable certificate. Confirmation students, NHS and scouts need this. | Medium | M |
-| 12 | **Bulk import of paper cards** | Typing cards one at a time is slow for the first big batch. Upload a spreadsheet (the parish types the cards into Excel once) and the app adds everyone, skipping duplicate emails. | High (once) | M |
+| 12 | **Bulk import of paper cards** (done) | Typing cards one at a time is slow for the first big batch. Upload a spreadsheet (the parish types the cards into Excel once) and the app adds everyone, skipping duplicate emails. | High (once) | M |
 | 13 | **Duplicate detection** | When someone types a paper card that matches an existing name or phone, warn before saving and offer to merge. Today only matching emails are linked. | Medium | S |
 | 14 | **Text-message reminders (SMS)** | Many older parishioners read texts but not email. Same as #2 over SMS via Twilio. Costs a little per message, and needs opt-in consent. | High | L |
 

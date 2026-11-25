@@ -22,6 +22,9 @@ insert into auth.users values
  ('00000000-0000-0000-0000-0000000000e2', 'coord-e@example.org'),
  ('00000000-0000-0000-0000-0000000000e3', 'former-e@example.org'),
  ('00000000-0000-0000-0000-0000000000e4', 'cara@example.org');
+-- leave the churches from rls_test.sql out of it
+update churches set reminder_days = 0;
+delete from email_outbox;
 insert into churches (slug, org_name) values ('st-mail', 'St. Mail''s Parish');
 insert into memberships (church_id, user_id, role) select c.id, u.id, u.role from churches c,
   (values ('00000000-0000-0000-0000-0000000000e1'::uuid, 'admin'), ('00000000-0000-0000-0000-0000000000e2'::uuid, 'coordinator'),

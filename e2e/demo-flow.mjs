@@ -238,6 +238,7 @@ await signOut();
 
 // 9. Platform owner adds a church
 await signIn("owner@example.org");
+ok(await p.isVisible("main.content h1:has-text('All churches')"), "platform owner lands on All churches");
 ok((await p.locator("select[aria-label='Switch church']").count()) === 0, "platform owner has no church picker either");
 await go("All churches");
 await p.fill("#ch-name", "St. Mary's Parish"); await p.fill("#ch-admin", "office@stmarys.example");

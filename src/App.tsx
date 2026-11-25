@@ -124,7 +124,7 @@ function Shell() {
     ...(staff ? [{ to: "/manage", label: "Manage", icon: "settings" }] : []),
     ...(session.isPlatformAdmin ? [{ to: "/churches", label: "All churches", icon: "church" }] : []),
   ];
-  const home = staff ? "/home" : church ? "/me" : "/churches";
+  const home = session.isPlatformAdmin ? "/churches" : staff ? "/home" : church ? "/me" : "/churches";
 
 
   return (

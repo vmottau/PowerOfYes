@@ -71,7 +71,7 @@ export function Help() {
       )}
 
       <p className="muted small helpfoot">
-        Still stuck? {staff ? "Volunteers ask their coordinator, and coordinators contact the person who runs this site." : "Ask a coordinator at your church. They can pass it on if needed."}
+        Still stuck? {staff ? "Volunteers ask their coordinator, and coordinators contact the platform owner." : "Ask a coordinator at your church. They can pass it on if needed."}
         {" "}<Link to="/">Back to my home page</Link>
       </p>
     </div>

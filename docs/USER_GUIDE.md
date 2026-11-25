@@ -25,7 +25,7 @@ Everyone uses the same website, and the menu shows only what your role needs. Ea
 | Volunteer | Anyone in the parish who says yes | Fill in their volunteer card, see where they're scheduled, say "Can't make it" | My volunteer page |
 | Coordinator | Staff or lead volunteers who schedule people | Find volunteers, type in paper cards, run events, take attendance, keep a follow-up list, download spreadsheets and backups | Home, Volunteers, Events & projects, Follow-ups, My card, Manage, Help |
 | Church admin | The person in charge of the app for the church | Invite coordinators, change people's roles, set the church's name, colors and logo | Same as coordinator, with more under Manage |
-| Platform owner | The person who runs the website | Add a church to the site and name its first admin | All churches, Help |
+| Platform owner | The person who runs the website for every church on it | Add a church to the site and name its first admin | All churches, Help |
 
 Signing in never needs a password. You type your email and the app emails you a one-time link (in demo mode you skip the email). Staff have their own volunteer card too, under **My card**.
 
@@ -173,4 +173,4 @@ Email reminders use a free email service (up to 300 emails a day), so they add n
 
 **Does the app cost anything?** No. The website and database run on free plans.
 
-**Who do I ask for help?** Volunteers and staff should ask their coordinator first. If the coordinator can't solve it, they contact the person who runs the site.
+**Who do I ask for help?** Volunteers and staff should ask their coordinator first. If the coordinator can't solve it, they contact the platform owner.

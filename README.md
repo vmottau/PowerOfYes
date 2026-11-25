@@ -82,9 +82,24 @@ Good to know:
 - Volunteers whose card has no email address don't get reminders.
 - Replies to a reminder go to the coordinator who created the event. Replies to a "Can't make it" email go to the volunteer.
 - Brevo's free plan sends up to **300 emails a day**. Anything over the daily limit waits and goes out the next day.
-- A parish office address delivers best. A personal Gmail, Yahoo or AOL address works, but some emails may land in spam folders, because those providers are strict about other services sending in their name.
-- **If the church gets its own web domain later** (like `stmarys.org`), you can switch to Resend, which is free for up to 100 emails a day: verify the domain at [resend.com](https://resend.com) under **Domains**, make an API key (it starts with `re_`), and run `email-setup.sql` again with that key and an address at the domain. The app tells the two kinds of keys apart on its own.
+- A parish office address delivers best. A personal Gmail, Yahoo or AOL address works, but some emails may land in spam folders, because those providers are strict about other services sending in their name. An address at the church's own domain is best of all (see below).
 - To stop reminders for a church, set them to **Off** under **Manage → Emails**. To stop every email from the site, run `select cron.unschedule('volunteer-emails-send');` in the SQL Editor (running `email-setup.sql` again turns it back on).
+
+### If the church has its own web domain
+A church with its own web address (St. Peter's has `stpeterchurchcoplay.com`) can send from an address at that domain, such as `volunteers@stpeterchurchcoplay.com`. Emails from a church's own domain are less likely to land in spam. There are two ways to do it. Both need **someone who can change the domain's settings** (whoever manages the church website or registered the domain, often at GoDaddy, Squarespace, Wix or similar) to add a few lines Brevo or Resend gives you. These lines, called DNS records, prove the church owns the domain. Adding them doesn't change the website or the church's existing email.
+
+**Option A: stay with Brevo (recommended).** Nothing else changes, and you keep the 300-emails-a-day free plan.
+1. In Brevo, open **Senders, Domains & Dedicated IPs → Domains → Add a domain**, and enter the church's domain.
+2. Brevo shows the records to add. Send them to the person who manages the domain. (If the domain is at a company Brevo knows, it may offer to add them for you after you sign in there.)
+3. Once Brevo shows the domain as **Authenticated**, add a sender at that domain (step 3 above), confirm it, and run `email-setup.sql` again with that address. You can leave the key line as it is; the saved key is kept.
+
+**Option B: switch to Resend.** Resend's free plan allows 100 emails a day.
+1. Make a free account at [resend.com](https://resend.com) and open **Domains → Add domain**.
+2. Send the records it shows to the person who manages the domain. Wait until Resend says **Verified**; this can take from a few minutes to a day.
+3. Open **API Keys → Create API key** (Sending access is enough). It starts with `re_`.
+4. Run `email-setup.sql` again with the Resend key and an address at the domain. The app sees it's a Resend key and switches on its own.
+
+The "from" address doesn't need a real mailbox, because replies go to the coordinator or the volunteer. Still, if the church can create a `volunteers@` mailbox or forwarding address, people who write to it will reach someone.
 
 ## Paper cards and online sign-ups
 Staff can keep typing in paper cards. When someone with a paper card later signs in and joins that church using the **same email address**, the app links them to their existing card automatically, along with their event history.

@@ -8,6 +8,7 @@ import { copyText, errText, useLoad, useToast } from "../lib/hooks";
 import { downloadBlob, toCSV, zipFiles } from "../lib/export";
 import { fmtPhone, todayISO } from "../lib/format";
 import { Emails } from "./Emails";
+import { Tip } from "../components/Tip";
 
 type Tab = "areas" | "people" | "emails" | "backup" | "appearance";
 
@@ -308,7 +309,7 @@ function People({ canEdit }: { canEdit: boolean }) {
 
       <div className="stack">
         <section className="panel">
-          <div className="panelhead"><h2>Volunteer sign-up link</h2></div>
+          <div className="panelhead"><h2>Volunteer sign-up link <Tip align="right">This link takes people straight to your church. Volunteers must sign up through it (or an invite), so share it widely: bulletin, emails, website or a QR code.</Tip></h2></div>
           <p className="muted small">Share this in the bulletin, on the website or as a QR code. Anyone who signs up through it joins {church?.org_name}.</p>
           <div className="linkbox"><code>{link}</code><button className="btn small" type="button" onClick={() => void copyText(link, "sign-up link", toast)}>Copy</button></div>
         </section>

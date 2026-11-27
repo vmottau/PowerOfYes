@@ -12,6 +12,7 @@ import { downloadCSV, fileSlug } from "../lib/export";
 import { digits, fmtPhone, isPast, longDate, plural, todayISO } from "../lib/format";
 import { HistoryLine, historyByVolunteer } from "../lib/history";
 import { copyText, errText, useLoad, useToast } from "../lib/hooks";
+import { Tip } from "../components/Tip";
 
 type StatusFilter = null | "todo" | "done" | "online";
 
@@ -125,7 +126,7 @@ export function Directory() {
           </div>
         ))}
         <div className="group">
-          <h2>Contact status</h2>
+          <h2>Contact status <Tip>“To contact” lists people nobody has reached out to yet. Tick “We've reached out to this person” when you edit someone's card, and they move to “Contacted”.</Tip></h2>
           <div className="chips">
             {statusChips.map((c) => (
               <button key={c.id} type="button" className="chip status" aria-pressed={status === c.id} onClick={() => setStatus(status === c.id ? null : c.id)}>
@@ -200,6 +201,7 @@ export function Directory() {
         <div className="selbar">
           <div className="in">
             <b>{picked.size} selected</b>
+            <Tip>Pick an event, then click Assign to put everyone you ticked on its roster. They'll see it on their own page. Choose “+ Create a new event…” to make the event first.</Tip>
             <select id="assign-target" aria-label="Choose an event or project" value={target} onChange={(e) => {
               if (e.target.value === "__new") { setNewEventFor([...picked]); setTarget(""); } else setTarget(e.target.value);
             }}>

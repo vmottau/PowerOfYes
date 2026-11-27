@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useApi, type ChurchEvent, type EventInput } from "../api";
 import { useAppState } from "../App";
 import { errText } from "../lib/hooks";
+import { Tip } from "./Tip";
 
 interface Props {
   event: ChurchEvent | null;
@@ -51,7 +52,7 @@ export function EventForm({ event, defaultArea, onSaved, onCancel, onDeleted }: 
         <div className="field"><label htmlFor="ev-place">Where</label>
           <input id="ev-place" value={f.place} onChange={(e) => set({ place: e.target.value })} placeholder="Parish hall" /></div>
       </div>
-      <div className="field"><label htmlFor="ev-needed">Volunteers needed</label>
+      <div className="field"><label htmlFor="ev-needed">Volunteers needed <Tip>Optional. Set how many people you need, and Home shows how many spots are still open, like “3 of 6”.</Tip></label>
         <input id="ev-needed" type="number" min={0} inputMode="numeric" value={f.needed ?? ""} placeholder="Optional"
           onChange={(e) => { const n = parseInt(e.target.value, 10); set({ needed: Number.isFinite(n) && n > 0 ? n : null }); }} /></div>
       <div className="field signupopt">

@@ -9,6 +9,7 @@ import { downloadCSV, fileSlug } from "../lib/export";
 import { fmtPhone, longDate, plural } from "../lib/format";
 import { historyByVolunteer } from "../lib/history";
 import { copyText, errText, useLoad, useToast } from "../lib/hooks";
+import { Tip } from "../components/Tip";
 
 const ATT: { id: AttendanceStatus; label: string }[] = [
   { id: "assigned", label: "Assigned" }, { id: "attended", label: "Attended" }, { id: "missed", label: "Missed" },
@@ -98,6 +99,9 @@ export function EventDetail() {
                 for (const a of rs.filter((x) => x.status === "assigned")) await api.setAttendance(a.id, "attended");
               }, "Marked everyone attended")}>Mark all attended</button>
             )}
+            {rs.some((a) => a.status === "assigned") && (
+              <Tip align="right">Marks everyone still on the roster as having come. Then click Missed for anyone who didn't. This builds each volunteer's “served” count.</Tip>
+            )}
             {roster.some((x) => x.v.email) && (
               <button className="btn" type="button" onClick={() => {
                 const em = [...new Set(roster.map((x) => x.v.email).filter(Boolean))];
@@ -148,6 +152,7 @@ export function EventDetail() {
           <div className="opts">
             <input type="search" id="pick-q" placeholder="Search volunteers" aria-label="Search volunteers to add" value={pickQ} onChange={(e) => setPickQ(e.target.value)} />
             {area && <label className="inline"><input type="checkbox" id="pick-only" checked={onlyInterested} onChange={(e) => setOnlyInterested(e.target.checked)} /> Only people who checked {area.label}</label>}
+            {area && <Tip align="right">This event belongs to {area.label}, so people who ticked that box on their card are listed first. Untick to see every volunteer.</Tip>}
           </div>
           {cands.length ? (
             <div className="plist">

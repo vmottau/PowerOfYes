@@ -495,3 +495,24 @@ dialog:has(.importer) { width: min(820px, calc(100vw - 24px)); }
 .ev.openev.full .spots { color: var(--muted); }
 .ev.openev { border-color: color-mix(in oklab, var(--good) 35%, var(--line)); }
 .rrow .who b .badge { display: inline-block; margin-left: 8px; color: var(--good); font-size: 12px; }
+
+/* ---------- help: "?" tips, welcome box, Help page ---------- */
+.tip { position: relative; display: inline-block; vertical-align: middle; margin-left: 4px; font-family: var(--body); text-transform: none; letter-spacing: normal; font-weight: 400; }
+.tipbtn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--primary-text); font-size: 13px; font-weight: 700; line-height: 1; padding: 0; display: inline-grid; place-items: center; cursor: pointer; }
+.tipbtn:hover, .tipbtn[aria-expanded="true"] { border-color: var(--primary); background: var(--primary-soft); }
+.tipbody { position: absolute; z-index: 40; top: calc(100% + 6px); left: -8px; width: max-content; max-width: min(300px, 78vw); background: var(--fg); color: var(--surface); border-radius: 10px; padding: 10px 12px; font-size: 14px; line-height: 1.4; box-shadow: var(--shadow); white-space: normal; text-align: left; }
+.tipbody.right { left: auto; right: -8px; }
+.selbar .tipbody { top: auto; bottom: calc(100% + 6px); } /* the bar is pinned to the bottom of the screen */
+.welcome { background: var(--primary-soft); border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 18px; display: grid; gap: 10px; }
+.welcome h2 { font-family: var(--display); font-size: 24px; text-transform: uppercase; color: var(--primary-text); margin: 0; }
+.welcome-act { display: flex; gap: 10px; flex-wrap: wrap; }
+.helpsteps { margin: 0; padding-left: 22px; display: grid; gap: 6px; }
+.helppage .panel { margin-bottom: 16px; }
+.helppage .panel p { margin: 0; }
+.faqs { display: grid; gap: 8px; }
+.faq { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 0 16px; }
+.faq summary { cursor: pointer; font-weight: 600; padding: 12px 0; }
+.faq[open] summary { color: var(--primary-text); }
+.faqa { padding: 0 0 14px; }
+.helpfoot { margin-top: 20px; }
+@media print { .tip, .welcome { display: none !important; } }

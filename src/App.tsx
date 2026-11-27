@@ -17,6 +17,8 @@ import { EventDetail } from "./pages/EventDetail";
 import { Followups } from "./pages/Followups";
 import { Manage } from "./pages/Manage";
 import { Churches } from "./pages/Churches";
+import { Help, helpRoleOf } from "./pages/Help";
+import { Welcome } from "./components/Welcome";
 
 interface AppState {
   session: Session;
@@ -123,6 +125,7 @@ function Shell() {
     ...(church ? [{ to: "/me", label: staff ? "My card" : "My volunteer page", icon: "card" }] : []),
     ...(staff ? [{ to: "/manage", label: "Manage", icon: "settings" }] : []),
     ...(session.isPlatformAdmin ? [{ to: "/churches", label: "All churches", icon: "church" }] : []),
+    { to: "/help", label: "Help", icon: "help" },
   ];
   const home = session.isPlatformAdmin ? "/churches" : staff ? "/home" : church ? "/me" : "/churches";
 
@@ -142,7 +145,10 @@ function Shell() {
             <Icon name={menuOpen ? "x" : "menu"} />
           </button>
         ) : (
-          <div className="mobileright"><button className="iconbtn" type="button" aria-label="Sign out" onClick={() => signOut(api)}><Icon name="logout" /></button></div>
+          <div className="mobileright">
+            <NavLink className="iconbtn" to="/help" aria-label="Help" title="Help"><Icon name="help" /></NavLink>
+            <button className="iconbtn" type="button" aria-label="Sign out" onClick={() => signOut(api)}><Icon name="logout" /></button>
+          </div>
         )}
       </header>
       <aside className={"sidebar" + (menuOpen ? " open" : "")}>
@@ -166,6 +172,7 @@ function Shell() {
       </aside>
       {menuOpen && <div className="scrim" onClick={() => setMenuOpen(false)} />}
       <main className="content" key={church?.id ?? "none"}>
+        {loc.pathname === home && <Welcome email={session.email} role={session.isPlatformAdmin ? "owner" : helpRoleOf(false, !!church, role)} churchId={church?.id ?? null} />}
         <Routes>
           <Route path="/" element={<Navigate to={home} replace />} />
           {church && <Route path="/me" element={<MyPage />} />}
@@ -176,6 +183,7 @@ function Shell() {
           {staff && <Route path="/followups" element={<Followups />} />}
           {staff && <Route path="/manage" element={<Manage />} />}
           {session.isPlatformAdmin && <Route path="/churches" element={<Churches />} />}
+          <Route path="/help" element={<Help />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

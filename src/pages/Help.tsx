@@ -23,7 +23,9 @@ export function Help() {
     ? [mine, ...(["volunteer", "coordinator", "admin", "owner"] as HelpRole[]).filter((r) => r !== mine && (r !== "owner" || session.isPlatformAdmin))]
     : ["volunteer"];
   const [tab, setTab] = useState<HelpRole>(mine);
-  const welcome = useWelcome(session.email, mine, church?.id ?? null);
+  // Same role the welcome box on the home page uses, so "Show the welcome box again" brings back that one.
+  const welcomeRole: HelpRole = session.isPlatformAdmin ? "owner" : mine;
+  const welcome = useWelcome(session.email, welcomeRole, church?.id ?? null);
   const start = FIRST_STEPS[tab];
 
   return (
@@ -43,7 +45,7 @@ export function Help() {
       <section className="panel">
         <div className="panelhead"><h2>Getting started</h2></div>
         <ol className="helpsteps">{start.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
-        {tab === mine && welcome.seen && (
+        {tab === welcomeRole && welcome.seen && (
           <div><button className="linkbtn" type="button" onClick={welcome.showAgain}>Show the welcome box again</button></div>
         )}
       </section>

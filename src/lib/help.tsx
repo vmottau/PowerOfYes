@@ -95,8 +95,11 @@ export const FAQS: Record<HelpRole, Faq[]> = {
 
 const EVENT = "poy-welcome-change";
 const key = (email: string, role: HelpRole, churchId: string | null) => `poy-welcome:${email}:${role}:${churchId ?? "-"}`;
-const read = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
+// The in-memory copy keeps "Got it" working for this visit even when browser storage is blocked or full.
+const memory = new Map<string, string | null>();
+const read = (k: string) => { if (memory.has(k)) return memory.get(k)!; try { return localStorage.getItem(k); } catch { return null; } };
 const write = (k: string, v: string | null) => {
+  memory.set(k, v);
   try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* private mode: the welcome just shows again */ }
   window.dispatchEvent(new Event(EVENT));
 };

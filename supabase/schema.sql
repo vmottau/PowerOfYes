@@ -280,6 +280,24 @@ drop trigger if exists memberships_guard on public.memberships;
 create trigger memberships_guard before update or delete on public.memberships
   for each row execute function public.guard_membership();
 
+-- An admin invitation can't be cancelled or downgraded while it's the church's only way to have an admin
+-- (after the platform owner handed the church to someone who hasn't signed in yet).
+create or replace function public.guard_admin_invite() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.role = 'admin' and (tg_op = 'DELETE' or new.role <> 'admin')
+     and exists (select 1 from public.churches where id = old.church_id)
+     and not exists (select 1 from public.memberships where church_id = old.church_id and role = 'admin')
+     and not exists (select 1 from public.invites where church_id = old.church_id and role = 'admin' and id <> old.id) then
+    raise exception 'A church must always have at least one admin';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end;
+$$;
+drop trigger if exists invites_guard on public.invites;
+create trigger invites_guard before update or delete on public.invites
+  for each row execute function public.guard_admin_invite();
+
 -- Only the platform owner changes a church's link name or pauses it (church admins edit its look).
 create or replace function public.guard_church() returns trigger
 language plpgsql security definer set search_path = public as $$

@@ -313,6 +313,18 @@ update memberships set role = 'volunteer'
  where church_id = (select id from churches where slug = 'st-one') and user_id = '00000000-0000-0000-0000-0000000000a1';
 select pg_temp.expect((select role from memberships where church_id = (select id from churches where slug = 'st-one')
   and user_id = '00000000-0000-0000-0000-0000000000a1') = 'volunteer', 'the old admin is now a volunteer');
+-- ...and that waiting invitation can't then be cancelled or downgraded, leaving no admin at all
+do $$ begin
+  begin
+    delete from invites where email = 'new.admin@example.org';
+    raise exception 'FAIL: cancelled the only way the church has an admin';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin
+    perform invite_to_church((select id from churches where slug = 'st-one'), 'new.admin@example.org', 'coordinator');
+    raise exception 'FAIL: downgraded the only admin invitation';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+select pg_temp.expect((select role from invites where email = 'new.admin@example.org') = 'admin', 'the replacement admin invitation is kept');
 reset role;
 insert into auth.users values ('00000000-0000-0000-0000-0000000000a3', 'new.admin@example.org');
 set role authenticated;

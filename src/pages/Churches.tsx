@@ -131,7 +131,7 @@ function ChurchSettingsForm({ church, onClose, onSaved }: { church: Church; onCl
   async function adminAction(run: () => Promise<string | void>) {
     setAdminWarn(null);
     try { const msg = await run(); await settings.reload(); if (msg) toast(msg); }
-    catch (err) { setAdminWarn(/at least one admin/i.test(errText(err)) ? "Add the new admin's email first. A church always needs an admin." : errText(err)); }
+    catch (err) { setAdminWarn(/at least one admin/i.test(errText(err)) ? "Add the other admin's email first. A church always needs an admin." : errText(err)); }
   }
 
   async function addAdmin() {

@@ -103,6 +103,13 @@ export function createDemoApi(): Api {
     const c = s.churches.find((x) => x.id === id); if (!c) throw new Error("That church isn't on the site anymore.");
     return c;
   };
+  // Same as the invites_guard trigger: an admin invitation can't go while it's the church's only way to have an admin.
+  const keepsAnAdmin = (inv: Row<Invite> | undefined, newRole?: Role) => {
+    if (!inv || inv.role !== "admin" || newRole === "admin") return;
+    if (!s.memberships.some((m) => m.church_id === inv.church_id && m.role === "admin")
+        && !s.invites.some((i) => i.church_id === inv.church_id && i.role === "admin" && i.id !== inv.id))
+      throw new Error("A church must always have at least one admin");
+  };
   const mine = <T extends { church_id: string }>(rows: T[]) => rows.filter((r) => r.church_id === churchId);
   const myVol = () => s.volunteers.find((v) => v.church_id === churchId && v.user_id === s.sessionUserId) ?? null;
   const taken = (eventId: string) => s.assignments.filter((a) => a.event_id === eventId && a.status !== "cant_make_it").length;
@@ -330,10 +337,11 @@ export function createDemoApi(): Api {
         save(); return "added";
       }
       const inv = mine(s.invites).find((i) => i.email === e);
+      keepsAnAdmin(inv, role);
       if (inv) inv.role = role; else s.invites.push({ id: uid(), church_id: cid(), email: e, role, created_at: new Date().toISOString() });
       save(); return "invited";
     },
-    async cancelInvite(id) { requireAdmin(); s.invites = s.invites.filter((i) => !(i.id === id && i.church_id === churchId)); save(); },
+    async cancelInvite(id) { requireAdmin(); keepsAnAdmin(mine(s.invites).find((i) => i.id === id)); s.invites = s.invites.filter((i) => !(i.id === id && i.church_id === churchId)); save(); },
     async setRole(userId, role) {
       requireAdmin();
       const m = s.memberships.find((x) => x.church_id === churchId && x.user_id === userId); if (!m) return;
@@ -440,6 +448,7 @@ export function createDemoApi(): Api {
     },
     async cancelChurchInvite(id, inviteId) {
       requireOwner(id);
+      keepsAnAdmin(s.invites.find((i) => i.id === inviteId && i.church_id === id));
       s.invites = s.invites.filter((i) => !(i.id === inviteId && i.church_id === id)); save();
     },
   };

@@ -182,7 +182,7 @@ Click **Settings** next to a church to change it without going into it:
 
 Click **Save** to keep the name, link and reminder changes. Admin changes save as soon as you click them.
 
-**When a church's admin changes:** add the new admin's email first, then remove the old admin. A church always needs an admin, so the old one can only be removed once the new one is added (even if the new person hasn't signed in yet).
+**When a church's admin changes:** add the new admin's email first, then remove the old admin. A church always needs an admin, so the old one can only be removed once the new one is added (even if the new person hasn't signed in yet). The same goes for a mistyped admin email: add the right one, then cancel the wrong invitation.
 
 Colors, logo and app title are still set inside the church: click **Open**, then go to **Manage → Appearance**.
 

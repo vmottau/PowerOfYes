@@ -55,7 +55,7 @@ Supabase (free plan) handles sign-in and the database. GitHub Pages (free) hosts
 
 ### 2. Connect GitHub
 1. In this repository on GitHub, open **Settings → Secrets and variables → Actions → Variables** and add:
-   - `SUPABASE_URL`: the Project URL
+   - `SUPABASE_URL`: the Project URL, just the address like `https://abcd1234.supabase.co` (nothing after `.co`)
    - `SUPABASE_ANON_KEY`: the anon / public key
 2. Open **Settings → Pages** and set **Source** to **GitHub Actions**.
 3. Open **Actions → Deploy to GitHub Pages → Run workflow**. When it finishes, the site's address appears on the run.

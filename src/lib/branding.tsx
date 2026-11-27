@@ -38,9 +38,23 @@ export function readableOnLight(hex: string, tint = 0.14): string {
   for (let k = 0; k <= 1; k += 0.02) {
     const c = toHex(mix(base, [0, 0, 0], k));
     const soft = toHex(mix(toRgb(hex), [255, 255, 255], 1 - tint));
-    if (contrast(c, "#ffffff") >= 4.8 && contrast(c, soft) >= 4.8) return c;
+    // Primary buttons brighten by 10% on hover (styles.css), so the label has to stay readable on that shade too.
+    const hover = toHex(toRgb(c).map((v) => Math.min(255, v * 1.1)) as RGB);
+    if (contrast(c, "#ffffff") >= 4.8 && contrast(hover, "#ffffff") >= 4.6 && contrast(c, soft) >= 4.8) return c;
   }
   return "#000000";
+}
+
+/**
+ * Dark mode: lightens the main color, starting from a share of white, until it reads at 4.5:1 or better
+ * against a dark color (the dark label on primary buttons, or the dark panels behind links).
+ */
+export function readableOnDark(hex: string, start: number, dark: string): string {
+  for (let k = start; k <= 1; k += 0.02) {
+    const c = toHex(mix(toRgb(hex), [255, 255, 255], k));
+    if (contrast(c, dark) >= 4.8) return c;
+  }
+  return "#ffffff";
 }
 
 /**
@@ -56,6 +70,8 @@ export function applyBranding(b: Branding) {
   root.style.setProperty("--brand-2", accent);
   root.style.setProperty("--brand-text", readableOnLight(primary, 0.11));
   root.style.setProperty("--brand-2-text", readableOnLight(accent, 0.14));
+  root.style.setProperty("--brand-on-dark", readableOnDark(primary, 0.38, "#120e18"));
+  root.style.setProperty("--brand-text-dark", readableOnDark(primary, 0.55, "#2c2733"));
   document.title = b.org_name ? `${b.app_title} · ${b.org_name}` : b.app_title;
 }
 

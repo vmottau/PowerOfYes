@@ -9,6 +9,8 @@
   /* Set by applyBranding: the brand colors deepened just enough for white text and tinted backgrounds. */
   --brand-text: var(--brand);
   --brand-2-text: var(--brand-2);
+  --brand-on-dark: color-mix(in oklab, var(--brand) 62%, white);
+  --brand-text-dark: color-mix(in oklab, var(--brand) 45%, white);
   --display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --body: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
 
@@ -23,7 +25,7 @@
   --primary-text: var(--brand-text);
   --accent: var(--brand-2-text);
   --accent-soft: color-mix(in oklab, var(--brand-2) 14%, white);
-  --side-bg: color-mix(in oklab, var(--brand) 88%, black);
+  --side-bg: color-mix(in oklab, var(--brand-text) 88%, black);
   --side-fg: color-mix(in oklab, var(--brand) 6%, white);
   --side-muted: color-mix(in oklab, var(--brand) 18%, #e4e0ec);
   --side-active: color-mix(in oklab, var(--brand) 60%, white 20%);
@@ -48,13 +50,13 @@
     --fg: #eeeaf5;
     --muted: color-mix(in oklab, var(--brand) 15%, #aaa3b8);
     --line: color-mix(in oklab, var(--brand) 25%, #34303d);
-    --primary: color-mix(in oklab, var(--brand) 62%, white);
+    --primary: var(--brand-on-dark);
     --primary-ink: #120e18;
     --primary-soft: color-mix(in oklab, var(--brand) 35%, #1b1821);
-    --primary-text: color-mix(in oklab, var(--brand) 45%, white);
+    --primary-text: var(--brand-text-dark);
     --accent: color-mix(in oklab, var(--brand-2) 60%, white);
     --accent-soft: color-mix(in oklab, var(--brand-2) 25%, #1b1821);
-    --side-bg: color-mix(in oklab, var(--brand) 45%, #0c0a10);
+    --side-bg: color-mix(in oklab, var(--brand-text) 45%, #0c0a10);
     --good: #74d39d; --good-soft: #1c3427; --warn-c: #f0b260; --danger: #ff8f86; --danger-soft: #3d1f1d;
     --shadow: 0 1px 2px rgb(0 0 0 / .3);
     color-scheme: dark;

@@ -15,11 +15,63 @@ export const useBranding = () => useContext(BrandingContext);
 
 const HEX = /^#[0-9a-f]{6}$/i;
 
-/** Puts the church's colors into CSS variables; every other color in styles.css is mixed from these. */
+type RGB = [number, number, number];
+const toRgb = (hex: string): RGB => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as RGB;
+const toHex = (c: RGB) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const mix = (a: RGB, b: RGB, t: number): RGB => [0, 1, 2].map((i) => a[i] * (1 - t) + b[i] * t) as RGB;
+const luminance = (c: RGB) => {
+  const [r, g, b] = c.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+/** WCAG contrast ratio between two colors (1 to 21). */
+export const contrast = (a: string, b: string) => {
+  const [x, y] = [luminance(toRgb(a)), luminance(toRgb(b))].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
+};
+/**
+ * Darkens a color just enough that white text on it, and the color itself as text on its own pale tint
+ * (as on tags and pills), are easy to read: at least 4.5:1, with a little room for the browser's own color mixing.
+ * Dark colors come back unchanged; a bright one, like a gold, becomes a deeper shade of itself.
+ */
+export function readableOnLight(hex: string, tint = 0.14): string {
+  const base = toRgb(hex);
+  for (let k = 0; k <= 1; k += 0.02) {
+    const c = toHex(mix(base, [0, 0, 0], k));
+    const soft = toHex(mix(toRgb(hex), [255, 255, 255], 1 - tint));
+    // Primary buttons brighten by 10% on hover (styles.css), so the label has to stay readable on that shade too.
+    const hover = toHex(toRgb(c).map((v) => Math.min(255, v * 1.1)) as RGB);
+    if (contrast(c, "#ffffff") >= 4.8 && contrast(hover, "#ffffff") >= 4.6 && contrast(c, soft) >= 4.8) return c;
+  }
+  return "#000000";
+}
+
+/**
+ * Dark mode: lightens the main color, starting from a share of white, until it reads at 4.5:1 or better
+ * against a dark color (the dark label on primary buttons, or the dark panels behind links).
+ */
+export function readableOnDark(hex: string, start: number, dark: string): string {
+  for (let k = start; k <= 1; k += 0.02) {
+    const c = toHex(mix(toRgb(hex), [255, 255, 255], k));
+    if (contrast(c, dark) >= 4.8) return c;
+  }
+  return "#ffffff";
+}
+
+/**
+ * Puts the church's colors into CSS variables; every other color in styles.css is mixed from these.
+ * --brand-text and --brand-2-text are the same colors, deepened only as far as needed to stay readable,
+ * so a church can pick a light or bright color (a gold, a sky blue) without making text hard to read.
+ */
 export function applyBranding(b: Branding) {
   const root = document.documentElement;
-  root.style.setProperty("--brand", HEX.test(b.primary_color) ? b.primary_color : DEFAULT_BRANDING.primary_color);
-  root.style.setProperty("--brand-2", HEX.test(b.accent_color) ? b.accent_color : DEFAULT_BRANDING.accent_color);
+  const primary = HEX.test(b.primary_color) ? b.primary_color : DEFAULT_BRANDING.primary_color;
+  const accent = HEX.test(b.accent_color) ? b.accent_color : DEFAULT_BRANDING.accent_color;
+  root.style.setProperty("--brand", primary);
+  root.style.setProperty("--brand-2", accent);
+  root.style.setProperty("--brand-text", readableOnLight(primary, 0.11));
+  root.style.setProperty("--brand-2-text", readableOnLight(accent, 0.14));
+  root.style.setProperty("--brand-on-dark", readableOnDark(primary, 0.38, "#120e18"));
+  root.style.setProperty("--brand-text-dark", readableOnDark(primary, 0.55, "#2c2733"));
   document.title = b.org_name ? `${b.app_title} · ${b.org_name}` : b.app_title;
 }
 

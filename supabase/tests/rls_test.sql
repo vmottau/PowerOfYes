@@ -288,6 +288,55 @@ do $$ begin
   exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
 end $$;
 
+-- only the platform owner changes a church's link name or pauses it; admins still edit its name
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
+do $$ begin
+  begin
+    update churches set slug = 'st-uno' where slug = 'st-one';
+    raise exception 'FAIL: a church admin changed the link name';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+  begin
+    update churches set active = false where slug = 'st-one';
+    raise exception 'FAIL: a church admin paused their church';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+update churches set org_name = 'St. One Parish Church' where slug = 'st-one';
+select pg_temp.expect((select org_name from church_by_slug('st-one')) = 'St. One Parish Church', 'a church admin can still rename their church');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a0');
+update churches set org_name = 'St. One Parish', slug = 'st-uno', reminder_days = 3 where slug = 'st-one';
+select pg_temp.expect((select reminder_days from churches where slug = 'st-uno') = 3, 'the platform owner edits a church''s name, link and reminders');
+update churches set slug = 'st-one' where slug = 'st-uno';
+
+-- the platform owner hands a church to a new admin who hasn't signed in yet
+select pg_temp.expect(invite_to_church((select id from churches where slug = 'st-one'), 'New.Admin@example.org', 'admin') = 'invited', 'the platform owner invites a new admin');
+update memberships set role = 'volunteer'
+ where church_id = (select id from churches where slug = 'st-one') and user_id = '00000000-0000-0000-0000-0000000000a1';
+select pg_temp.expect((select role from memberships where church_id = (select id from churches where slug = 'st-one')
+  and user_id = '00000000-0000-0000-0000-0000000000a1') = 'volunteer', 'the old admin is now a volunteer');
+reset role;
+insert into auth.users values ('00000000-0000-0000-0000-0000000000a3', 'new.admin@example.org');
+set role authenticated;
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a3');
+select sync_me();
+select pg_temp.expect(church_role((select id from churches where slug = 'st-one')) = 'admin', 'the new admin is admin after first sign-in');
+-- without a waiting invitation, even the platform owner can't leave a church with no admin
+select pg_temp.as_user('00000000-0000-0000-0000-0000000000a0');
+do $$ begin
+  begin
+    update memberships set role = 'volunteer'
+     where church_id = (select id from churches where slug = 'st-one') and user_id = '00000000-0000-0000-0000-0000000000a3';
+    raise exception 'FAIL: the platform owner left a church with no admin';
+  exception when raise_exception then if sqlerrm like 'FAIL%' then raise; end if; end;
+end $$;
+-- put things back as they were for the checks below
+update memberships set role = 'admin'
+ where church_id = (select id from churches where slug = 'st-one') and user_id = '00000000-0000-0000-0000-0000000000a1';
+reset role;
+delete from memberships where user_id = '00000000-0000-0000-0000-0000000000a3';
+delete from profiles where id = '00000000-0000-0000-0000-0000000000a3';
+delete from auth.users where id = '00000000-0000-0000-0000-0000000000a3';
+set role authenticated;
+
 -- platform owner can delete a church; everything in it goes with it
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a0');
 delete from churches where slug = 'st-two';

@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
-  Api, Assignment, AttendanceStatus, Branding, Church, ChurchEvent, EventInput, Followup, FollowupInput, Invite,
+  Api, Assignment, AttendanceStatus, Branding, Church, ChurchEvent, ChurchSettings, EventInput, Followup, FollowupInput, Invite,
   Membership, Ministry, MyAssignment, OpenEvent, Profile, Role, SentEmail, Session, Volunteer, VolunteerInput,
 } from "./types";
 import { pickCurrentChurch, rememberChurch } from "./churchChoice";
@@ -285,6 +285,38 @@ export function createSupabaseApi(url: string, anonKey: string): Api {
 
     async setChurchActive(id, active) {
       check(await sb.from("churches").update({ active }).eq("id", id));
+    },
+
+    async getChurchSettings(id): Promise<ChurchSettings> {
+      const [church, admins, invites] = await Promise.all([
+        sb.from("churches").select("reminder_days").eq("id", id).single(),
+        sb.from("memberships").select("user_id").eq("church_id", id).eq("role", "admin"),
+        sb.from("invites").select("id, email, role, created_at").eq("church_id", id).eq("role", "admin").order("created_at"),
+      ]);
+      const ids = (check(admins) as { user_id: string }[]).map((r) => r.user_id);
+      const profs = ids.length ? check(await sb.from("profiles").select("id, email").in("id", ids)) as { id: string; email: string }[] : [];
+      return {
+        reminder_days: (check(church) as { reminder_days: number }).reminder_days,
+        admins: profs.map((p) => ({ id: p.id, email: p.email, role: "admin" as Role })).sort((a, b) => a.email.localeCompare(b.email)),
+        adminInvites: check(invites) as Invite[],
+      };
+    },
+
+    async saveChurchSettings(id, c) {
+      const rows = check(await sb.from("churches").update({ org_name: c.org_name, slug: c.slug, reminder_days: c.reminder_days }).eq("id", id).select("id")) as unknown[];
+      if (!rows.length) throw new Error("Only the platform owner can do that.");
+    },
+
+    async addChurchAdmin(id, email) {
+      return check(await sb.rpc("invite_to_church", { c: id, invite_email: email, invite_role: "admin" })) as "added" | "invited";
+    },
+
+    async removeChurchAdmin(id, userId) {
+      check(await sb.from("memberships").update({ role: "volunteer" }).eq("church_id", id).eq("user_id", userId));
+    },
+
+    async cancelChurchInvite(id, inviteId) {
+      check(await sb.from("invites").delete().eq("church_id", id).eq("id", inviteId));
     },
   };
 }

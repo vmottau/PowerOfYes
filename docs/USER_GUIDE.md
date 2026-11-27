@@ -25,7 +25,7 @@ Everyone uses the same website, and the menu shows only what your role needs. Ea
 | Volunteer | Anyone in the parish who says yes | Fill in their volunteer card, see where they're scheduled, say "Can't make it" | My volunteer page |
 | Coordinator | Staff or lead volunteers who schedule people | Find volunteers, type in paper cards, run events, take attendance, keep a follow-up list, download spreadsheets and backups | Home, Volunteers, Events & projects, Follow-ups, My card, Manage, Help |
 | Church admin | The person in charge of the app for the church | Invite coordinators, change people's roles, set the church's name, colors and logo | Same as coordinator, with more under Manage |
-| Platform owner | The person who runs the website for every church on it | Add a church to the site and name its first admin | All churches, Help |
+| Platform owner | The person who runs the website for every church on it | Add a church to the site, change any church's name, link and admins, pause a church | All churches, Help |
 
 Signing in never needs a password. You type your email and the app emails you a one-time link (in demo mode you skip the email). Staff have their own volunteer card too, under **My card**.
 
@@ -171,6 +171,20 @@ Open **Manage → Appearance** to set the church name, the app title, the welcom
 ## For the platform owner
 
 Most church staff will never see this role. The platform owner lands on **All churches**, which lists every church on the site. To add one, fill in the church's name, a short **Link name** like `st-marys`, and **Their admin's email**, then click **Add church**. That person becomes the church's admin the first time they sign in. **Copy link** copies a church's sign-up link, **Open** goes into a church, and **Pause** hides a church from sign-up without deleting anything.
+
+### Changing a church's settings
+
+Click **Settings** next to a church to change it without going into it:
+
+- **Church name** and **Link name**. If you change the link name, the old sign-up link stops working, so send the church its new link.
+- **Reminder emails**: how far ahead volunteers get a reminder, or **Off**. The church's admins can change this too, under Manage → Emails.
+- **Admins**: everyone who runs the church, plus anyone invited as admin who hasn't signed in yet. Type an email and click **Add admin** to add one. **Remove as admin** takes the role away (that person stays in the church as a volunteer), and **Cancel invitation** withdraws one, for example one sent to a mistyped email.
+
+Click **Save** to keep the name, link and reminder changes. Admin changes save as soon as you click them.
+
+**When a church's admin changes:** add the new admin's email first, then remove the old admin. A church always needs an admin, so the old one can only be removed once the new one is added (even if the new person hasn't signed in yet).
+
+Colors, logo and app title are still set inside the church: click **Open**, then go to **Manage → Appearance**.
 
 ## Common questions
 

@@ -267,7 +267,10 @@ language plpgsql security definer set search_path = public as $$
 begin
   if old.role = 'admin' and (tg_op = 'DELETE' or new.role <> 'admin')
      and (select count(*) from public.memberships where church_id = old.church_id and role = 'admin') <= 1
-     and exists (select 1 from public.churches where id = old.church_id) then
+     and exists (select 1 from public.churches where id = old.church_id)
+     -- the platform owner may hand a church to a new admin who hasn't signed in yet
+     and not (public.is_platform_admin()
+              and exists (select 1 from public.invites where church_id = old.church_id and role = 'admin')) then
     raise exception 'A church must always have at least one admin';
   end if;
   return case when tg_op = 'DELETE' then old else new end;
@@ -276,6 +279,21 @@ $$;
 drop trigger if exists memberships_guard on public.memberships;
 create trigger memberships_guard before update or delete on public.memberships
   for each row execute function public.guard_membership();
+
+-- Only the platform owner changes a church's link name or pauses it (church admins edit its look).
+create or replace function public.guard_church() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (new.slug is distinct from old.slug or new.active is distinct from old.active)
+     and auth.uid() is not null and not public.is_platform_admin() then
+    raise exception 'Only the platform owner can change a church''s link name or pause it';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists churches_guard on public.churches;
+create trigger churches_guard before update on public.churches
+  for each row execute function public.guard_church();
 
 -- New churches start with the areas of interest from the Power of Yes card.
 create or replace function public.seed_church_ministries() returns trigger

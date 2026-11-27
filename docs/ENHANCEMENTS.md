@@ -8,7 +8,7 @@ A prioritized list of ideas for the Power of Yes volunteer app, based on what th
 **Value** is how much it helps the people using the app: volunteers, coordinators, and church admins.
 
 ## What the app already does
-So the list doesn't repeat what's there: volunteers fill in their card online and see where they're scheduled; coordinators search the directory, type in paper cards, create events, assign people, mark attendance, and keep follow-ups; admins invite coordinators and set the church's look; the platform owner adds churches. Each church has its own link and its data is kept separate.
+So the list doesn't repeat what's there: volunteers fill in their card online and see where they're scheduled; coordinators search the directory, type in paper cards, create events, assign people, mark attendance, and keep follow-ups; admins invite coordinators and set the church's look; the platform owner adds churches and edits each one's name, link and admins. Each church has its own link and its data is kept separate.
 
 ## Tier 1: Do next
 These close the biggest gaps between "list of names" and "people actually show up".

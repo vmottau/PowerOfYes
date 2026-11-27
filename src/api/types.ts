@@ -135,6 +135,22 @@ export interface Church extends Branding {
   active: boolean;
 }
 
+/** Platform owner: the settings of one church, as the Church settings dialog shows them. */
+export interface ChurchSettings {
+  /** Days before an event that reminders go out (0 = off). */
+  reminder_days: number;
+  /** People who are admins there now. */
+  admins: Profile[];
+  /** Admin invitations waiting for that person's first sign-in. */
+  adminInvites: Invite[];
+}
+
+export interface ChurchChanges {
+  org_name: string;
+  slug: string;
+  reminder_days: number;
+}
+
 export interface Membership {
   church: Church;
   role: Role;
@@ -227,4 +243,12 @@ export interface Api {
   listAllChurches(): Promise<Church[]>;
   createChurch(slug: string, name: string, adminEmail: string): Promise<string>;
   setChurchActive(id: string, active: boolean): Promise<void>;
+  /** Any church's settings and admins, without going into it. */
+  getChurchSettings(id: string): Promise<ChurchSettings>;
+  saveChurchSettings(id: string, changes: ChurchChanges): Promise<void>;
+  /** Makes this email an admin of the church: right away if they have an account, otherwise when they first sign in. */
+  addChurchAdmin(id: string, email: string): Promise<"added" | "invited">;
+  /** Takes away someone's admin role; they stay in the church as a volunteer. */
+  removeChurchAdmin(id: string, userId: string): Promise<void>;
+  cancelChurchInvite(id: string, inviteId: string): Promise<void>;
 }

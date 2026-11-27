@@ -3,7 +3,7 @@ import { useApi, type SentEmail } from "../api";
 import { useAppState } from "../App";
 import { errText, useLoad, useToast } from "../lib/hooks";
 
-const DAY_CHOICES: [number, string][] = [[0, "Off"], [1, "1 day before"], [2, "2 days before"], [3, "3 days before"], [7, "1 week before"]];
+export const DAY_CHOICES: [number, string][] = [[0, "Off"], [1, "1 day before"], [2, "2 days before"], [3, "3 days before"], [7, "1 week before"]];
 
 const STATUS: Record<SentEmail["status"], string> = {
   waiting: "Waiting to send",

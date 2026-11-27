@@ -98,6 +98,18 @@ export function createDemoApi(): Api {
   const roleIn = (c: string): Role | null => me()?.isPlatformAdmin ? "admin" : s.memberships.find((m) => m.church_id === c && m.user_id === s.sessionUserId)?.role ?? null;
   const requireStaff = () => { const r = roleIn(cid()); if (r !== "coordinator" && r !== "admin") throw new Error("Only coordinators can do that."); };
   const requireAdmin = () => { if (roleIn(cid()) !== "admin") throw new Error("Only a church admin can do that."); };
+  const requireOwner = (id: string) => {
+    if (!me()?.isPlatformAdmin) throw new Error("Only the platform owner can do that.");
+    const c = s.churches.find((x) => x.id === id); if (!c) throw new Error("That church isn't on the site anymore.");
+    return c;
+  };
+  // Same as the invites_guard trigger: an admin invitation can't go while it's the church's only way to have an admin.
+  const keepsAnAdmin = (inv: Row<Invite> | undefined, newRole?: Role) => {
+    if (!inv || inv.role !== "admin" || newRole === "admin") return;
+    if (!s.memberships.some((m) => m.church_id === inv.church_id && m.role === "admin")
+        && !s.invites.some((i) => i.church_id === inv.church_id && i.role === "admin" && i.id !== inv.id))
+      throw new Error("A church must always have at least one admin");
+  };
   const mine = <T extends { church_id: string }>(rows: T[]) => rows.filter((r) => r.church_id === churchId);
   const myVol = () => s.volunteers.find((v) => v.church_id === churchId && v.user_id === s.sessionUserId) ?? null;
   const taken = (eventId: string) => s.assignments.filter((a) => a.event_id === eventId && a.status !== "cant_make_it").length;
@@ -325,10 +337,11 @@ export function createDemoApi(): Api {
         save(); return "added";
       }
       const inv = mine(s.invites).find((i) => i.email === e);
+      keepsAnAdmin(inv, role);
       if (inv) inv.role = role; else s.invites.push({ id: uid(), church_id: cid(), email: e, role, created_at: new Date().toISOString() });
       save(); return "invited";
     },
-    async cancelInvite(id) { requireAdmin(); s.invites = s.invites.filter((i) => !(i.id === id && i.church_id === churchId)); save(); },
+    async cancelInvite(id) { requireAdmin(); keepsAnAdmin(mine(s.invites).find((i) => i.id === id)); s.invites = s.invites.filter((i) => !(i.id === id && i.church_id === churchId)); save(); },
     async setRole(userId, role) {
       requireAdmin();
       const m = s.memberships.find((x) => x.church_id === churchId && x.user_id === userId); if (!m) return;
@@ -389,6 +402,54 @@ export function createDemoApi(): Api {
     async setChurchActive(id, active) {
       if (!me()?.isPlatformAdmin) throw new Error("Only the platform owner can do that.");
       const c = s.churches.find((x) => x.id === id); if (c) c.active = active; save();
+    },
+
+    async getChurchSettings(id) {
+      requireOwner(id);
+      return out({
+        reminder_days: s.reminderDays?.[id] ?? 2,
+        admins: s.memberships.filter((m) => m.church_id === id && m.role === "admin")
+          .map((m) => ({ id: m.user_id, email: s.accounts.find((a) => a.id === m.user_id)?.email ?? "", role: "admin" as Role }))
+          .sort((a, b) => a.email.localeCompare(b.email)),
+        adminInvites: s.invites.filter((i) => i.church_id === id && i.role === "admin").map(strip),
+      });
+    },
+    async saveChurchSettings(id, ch) {
+      const c = requireOwner(id);
+      const sl = ch.slug.trim().toLowerCase();
+      if (!ch.org_name.trim()) throw new Error("Enter the church's name.");
+      if (!/^[a-z0-9][a-z0-9-]{1,39}$/.test(sl)) throw new Error("The link name can use lowercase letters, numbers and dashes.");
+      if (s.churches.some((x) => x.slug === sl && x.id !== id)) throw new Error("duplicate key value violates unique constraint");
+      if (!Number.isInteger(ch.reminder_days) || ch.reminder_days < 0 || ch.reminder_days > 14) throw new Error("Pick between 0 and 14 days.");
+      Object.assign(c, { org_name: ch.org_name.trim(), slug: sl });
+      s.reminderDays = { ...s.reminderDays, [id]: ch.reminder_days }; save();
+    },
+    async addChurchAdmin(id, email) {
+      requireOwner(id);
+      const e = email.trim().toLowerCase();
+      const acct = s.accounts.find((a) => a.email === e);
+      if (acct) {
+        const m = s.memberships.find((x) => x.church_id === id && x.user_id === acct.id);
+        if (m) m.role = "admin"; else s.memberships.push({ church_id: id, user_id: acct.id, role: "admin" });
+        save(); return "added";
+      }
+      const inv = s.invites.find((i) => i.church_id === id && i.email === e);
+      if (inv) inv.role = "admin"; else s.invites.push({ id: uid(), church_id: id, email: e, role: "admin", created_at: new Date().toISOString() });
+      save(); return "invited";
+    },
+    async removeChurchAdmin(id, userId) {
+      requireOwner(id);
+      const m = s.memberships.find((x) => x.church_id === id && x.user_id === userId && x.role === "admin"); if (!m) return;
+      // Same as the database: the last admin can go only while a new admin's invitation is waiting.
+      if (s.memberships.filter((x) => x.church_id === id && x.role === "admin").length <= 1
+          && !s.invites.some((i) => i.church_id === id && i.role === "admin"))
+        throw new Error("A church must always have at least one admin");
+      m.role = "volunteer"; save();
+    },
+    async cancelChurchInvite(id, inviteId) {
+      requireOwner(id);
+      keepsAnAdmin(s.invites.find((i) => i.id === inviteId && i.church_id === id));
+      s.invites = s.invites.filter((i) => !(i.id === inviteId && i.church_id === id)); save();
     },
   };
 }

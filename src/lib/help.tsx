@@ -43,7 +43,7 @@ export const FIRST_STEPS: Record<HelpRole, { title: string; steps: ReactNode[] }
     steps: [
       <><b>All churches</b> lists every church. Each one sees only its own volunteers and events.</>,
       <>To bring on a new church, give it a name, a short link name and its admin's email. That person runs it from there.</>,
-      <>Click <b>Open</b> on a church to go into it and see it as its admin would.</>,
+      <>Click <b>Settings</b> on a church to change its name, link or admin, or <b>Open</b> to go into it and see it as its admin would.</>,
     ],
   },
 };
@@ -87,6 +87,11 @@ export const FAQS: Record<HelpRole, Faq[]> = {
   ],
   owner: [
     { q: "How do I add a church?", a: <>On <b>All churches</b>, fill in its name, a short link name like st-marys, and its admin's email. That person becomes the church's admin the first time they sign in.</> },
+    { q: "How do I change a church's name or link?", a: <>Click <b>Settings</b> next to it on <b>All churches</b>, change the <b>Church name</b> or <b>Link name</b>, and click <b>Save</b>. If you change the link name, the old sign-up link stops working, so send the church its new one.</> },
+    { q: "A church's admin changed. How do I switch them?", a: <>Click <b>Settings</b> next to the church. Under <b>Admins</b>, type the new person's email and click <b>Add admin</b>, then click <b>Remove as admin</b> next to the old one. If the new person hasn't signed in yet, they're listed as "Hasn't signed in yet" and become admin the first time they sign in with that email. The old admin stays in the church as a volunteer.</> },
+    { q: "I typed the wrong admin email.", a: <>Click <b>Settings</b> next to the church, add the right email with <b>Add admin</b>, then click <b>Cancel invitation</b> next to the wrong one. (A church always needs an admin, so add the right one first.)</> },
+    { q: "Can I change a church's reminder emails?", a: <>Yes. Under <b>Settings</b>, pick how far ahead <b>Reminder emails</b> go out, or <b>Off</b>. The church's admins can change it too, under Manage → Emails.</> },
+    { q: "How do I change a church's colors or logo?", a: <>Click <b>Open</b> next to the church, then go to <b>Manage → Appearance</b>.</> },
     { q: "How do I stop a church from taking sign-ups?", a: <>Click <b>Pause</b> next to it on <b>All churches</b>. Nothing is deleted, and <b>Activate</b> turns it back on.</> },
   ],
 };

@@ -522,3 +522,12 @@ dialog:has(.importer) { width: min(820px, calc(100vw - 24px)); }
 .faqa { padding: 0 0 14px; }
 .helpfoot { margin-top: 20px; }
 @media print { .tip, .welcome { display: none !important; } }
+
+/* ---------- church settings (platform owner) ---------- */
+.adminsbox { display: grid; gap: 10px; }
+.adminsbox .list { gap: 6px; }
+.adminrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 6px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.adminrow .pill { margin-left: 6px; }
+.addadmin { display: flex; gap: 8px; flex-wrap: wrap; }
+.addadmin .input { flex: 1 1 200px; min-width: 0; }
+.warn.small { font-size: 13px; }

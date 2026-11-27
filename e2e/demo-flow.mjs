@@ -299,6 +299,19 @@ await p.waitForSelector(".churchrow:has-text(\"St. Mary's Parish\")");
 ok(true, "platform owner can add a church");
 await shot("5-churches");
 
+// A platform owner who is also a church's admin is still "Platform owner (you)" in Help, even inside that church
+await go("Help"); await p.waitForSelector("h1:has-text('Help')");
+ok(await p.isVisible("[role=tab][aria-selected=true]:has-text('Platform owner (you)')"), "Help marks the platform owner as the platform owner");
+await go("All churches");
+await p.fill("#ch-name", "Owner Test Parish"); await p.fill("#ch-slug", "owner-test"); await p.fill("#ch-admin", "owner@example.org");
+await p.click("text=Add church");
+await p.click(".churchrow:has-text('Owner Test Parish') button:has-text('Open')");
+await p.waitForSelector("a.navitem:has-text('Manage')");
+await go("Help"); await p.waitForSelector("h1:has-text('Help')");
+ok(await p.isVisible("[role=tab][aria-selected=true]:has-text('Platform owner (you)')") && await p.isVisible("[role=tab]:has-text('Church admins (also you)')"),
+  "inside their own church, Help still marks the platform owner first and the church admin role as also theirs");
+await go("All churches");
+
 // Platform owner changes a church's settings without going into it
 const settingsFor = async (name) => {
   await p.click(`.churchrow:has-text("${name}") button:has-text('Settings')`);

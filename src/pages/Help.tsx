@@ -16,7 +16,10 @@ export function helpRoleOf(isPlatformAdmin: boolean, hasChurch: boolean, role: s
 export function Help() {
   const api = useApi();
   const { session, church } = useAppState();
-  const mine = helpRoleOf(session.isPlatformAdmin, !!church, church ? session.profile.role : "volunteer");
+  // Their role in the church they're looking at (a platform owner can also be, say, a church's admin).
+  const churchRole = church ? helpRoleOf(false, true, session.profile.role) : null;
+  // A platform owner is always "Platform owner" here, even while inside a church.
+  const mine: HelpRole = session.isPlatformAdmin ? "owner" : churchRole ?? "volunteer";
   const staff = mine !== "volunteer";
   // Staff can read every role's answers (so they can help volunteers); volunteers see only their own.
   const tabs: HelpRole[] = staff
@@ -24,7 +27,7 @@ export function Help() {
     : ["volunteer"];
   const [tab, setTab] = useState<HelpRole>(mine);
   // Same role the welcome box on the home page uses, so "Show the welcome box again" brings back that one.
-  const welcomeRole: HelpRole = session.isPlatformAdmin ? "owner" : mine;
+  const welcomeRole: HelpRole = mine;
   const welcome = useWelcome(session.email, welcomeRole, church?.id ?? null);
   const start = FIRST_STEPS[tab];
 
@@ -36,7 +39,7 @@ export function Help() {
         <div className="subtabs" role="tablist" aria-label="Help for">
           {tabs.map((r) => (
             <button key={r} type="button" role="tab" aria-selected={tab === r} aria-pressed={tab === r} onClick={() => setTab(r)}>
-              {ROLE_NAMES[r]}{r === mine ? " (you)" : ""}
+              {ROLE_NAMES[r]}{r === mine ? " (you)" : r === churchRole && r !== "volunteer" ? " (also you)" : ""}
             </button>
           ))}
         </div>
